@@ -16,6 +16,10 @@ const XML1_ALIASES = {
   maKhoa: ['MA_KHOA'],
   ngaySinh: ['NGAY_SINH'],
   soCCCD: ['SO_CCCD'],
+  soNgayDieuTri: ['SO_NGAY_DTRI'],
+  ngayVaoNoiTru: ['NGAY_VAO_NOI_TRU'],
+  ketQuaDieuTri: ['KET_QUA_DTRI'],
+  maLoaiRaVien: ['MA_LOAI_RV'],
 };
 
 const XML2_ALIASES = {
@@ -51,6 +55,9 @@ const XML3_ALIASES = {
   ngayYLenh: ['NGAY_YL'],
   maKhoa: ['MA_KHOA'],
   maBacSi: ['MA_BAC_SI'],
+  // Non-empty only on ngày-giường (bed-day) DVKT lines — the reliable signal for
+  // "this line is a bed charge", unlike keyword-matching TEN_DICH_VU (see checkNgayGiuong.js).
+  maGiuong: ['MA_GIUONG'],
 };
 
 // XML types that carry cost/claim-line data consumable by the reconciliation engine.

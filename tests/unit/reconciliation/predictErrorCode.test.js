@@ -3,6 +3,7 @@ const {
   predictErrorCode,
   predictBacSiErrorCode,
   predictNgaySinhErrorCode,
+  predictNgayGiuongErrorCode,
 } = require('../../../reconciliation/predictErrorCode');
 const { KET_LUAN } = require('../../../config/constants');
 
@@ -148,5 +149,32 @@ describe('predictNgaySinhErrorCode', () => {
     const rows = [errorCodeRow({ maLoi: 'L001', apDungTruong: 'Đơn giá' })];
     const index = buildErrorCodeIndex(rows);
     expect(predictNgaySinhErrorCode(index)).toEqual([]);
+  });
+});
+
+describe('predictNgayGiuongErrorCode', () => {
+  test('untagged mã lỗi whose tên mentions "ngày giường" matches automatically', () => {
+    const rows = [
+      errorCodeRow({
+        maLoi: 'ML010',
+        tenLoi: 'Thanh toán ngày giường sai quy định (ngoài các trường hợp đặc biệt)',
+        apDungTruong: '',
+      }),
+      errorCodeRow({ maLoi: 'L999', tenLoi: 'Chung chung', apDungTruong: '' }),
+    ];
+    const index = buildErrorCodeIndex(rows);
+    expect(predictNgayGiuongErrorCode(index).map((w) => w.maLoi)).toEqual(['ML010']);
+  });
+
+  test('mã lỗi explicitly tagged apDungTruong = NGAY_GIUONG also matches', () => {
+    const rows = [errorCodeRow({ maLoi: 'L777', tenLoi: 'Sai lệch khác', apDungTruong: 'NGAY_GIUONG' })];
+    const index = buildErrorCodeIndex(rows);
+    expect(predictNgayGiuongErrorCode(index).map((w) => w.maLoi)).toEqual(['L777']);
+  });
+
+  test('no mã lỗi related to ngày giường -> empty result', () => {
+    const rows = [errorCodeRow({ maLoi: 'L001', apDungTruong: 'Đơn giá' })];
+    const index = buildErrorCodeIndex(rows);
+    expect(predictNgayGiuongErrorCode(index)).toEqual([]);
   });
 });

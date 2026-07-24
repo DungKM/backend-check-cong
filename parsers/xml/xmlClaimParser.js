@@ -51,6 +51,12 @@ function parseXml1Header(decodedXml) {
     maCSKCB: pick(root, XML1_ALIASES.maCSKCB),
     ngaySinh: bhytDateToDate(pick(root, XML1_ALIASES.ngaySinh)),
     soCCCD: pick(root, XML1_ALIASES.soCCCD),
+    soNgayDieuTri: toNumber(pick(root, XML1_ALIASES.soNgayDieuTri)),
+    ngayVao: bhytDateToDate(pick(root, XML1_ALIASES.ngayVao)),
+    ngayRa: bhytDateToDate(pick(root, XML1_ALIASES.ngayRa)),
+    ngayVaoNoiTru: bhytDateToDate(pick(root, XML1_ALIASES.ngayVaoNoiTru)),
+    ketQuaDieuTri: pick(root, XML1_ALIASES.ketQuaDieuTri),
+    maLoaiRaVien: pick(root, XML1_ALIASES.maLoaiRaVien),
   };
 }
 
@@ -79,8 +85,15 @@ function buildCostRow(type, detail, header, warnings) {
     hoTen: header.hoTen || '',
     ngaySinh: header.ngaySinh || null,
     soCCCD: header.soCCCD || '',
+    soNgayDieuTri: header.soNgayDieuTri ?? null,
+    ngayVao: header.ngayVao || null,
+    ngayRa: header.ngayRa || null,
+    ngayVaoNoiTru: header.ngayVaoNoiTru || null,
+    ketQuaDieuTri: header.ketQuaDieuTri || '',
+    maLoaiRaVien: header.maLoaiRaVien || '',
     maKhoa: get('maKhoa'),
     maBacSi: get('maBacSi'),
+    maGiuong: get('maGiuong'),
     loaiChiPhi: config.loaiChiPhi,
     maChiPhi,
     tenChiPhi: get('tenChiPhi'),

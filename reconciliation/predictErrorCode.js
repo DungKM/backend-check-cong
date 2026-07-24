@@ -4,6 +4,7 @@ const {
   MA_LOI_AP_DUNG_TRUONG,
   BAC_SI_KEYWORDS,
   NGAY_SINH_KEYWORDS,
+  NGAY_GIUONG_KEYWORDS,
 } = require('../config/constants');
 const { isDateInRange } = require('../utils/dateUtils');
 const { normalizeText } = require('../utils/normalizeText');
@@ -121,4 +122,14 @@ function predictNgaySinhErrorCode(errorCodeIndex, ngayYLenh) {
   return predictByFieldOrKeyword(errorCodeIndex, ngayYLenh, MA_LOI_AP_DUNG_TRUONG.NGAY_SINH, NGAY_SINH_KEYWORDS);
 }
 
-module.exports = { buildErrorCodeIndex, predictErrorCode, predictBacSiErrorCode, predictNgaySinhErrorCode };
+function predictNgayGiuongErrorCode(errorCodeIndex, ngayYLenh) {
+  return predictByFieldOrKeyword(errorCodeIndex, ngayYLenh, MA_LOI_AP_DUNG_TRUONG.NGAY_GIUONG, NGAY_GIUONG_KEYWORDS);
+}
+
+module.exports = {
+  buildErrorCodeIndex,
+  predictErrorCode,
+  predictBacSiErrorCode,
+  predictNgaySinhErrorCode,
+  predictNgayGiuongErrorCode,
+};
