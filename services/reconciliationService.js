@@ -3,6 +3,7 @@ const DrugCatalogMaster = require('../models/DrugCatalogMaster');
 const ServiceCatalogMaster = require('../models/ServiceCatalogMaster');
 const ErrorCodeCatalog = require('../models/ErrorCodeCatalog');
 const DoctorCatalogMaster = require('../models/DoctorCatalogMaster');
+const ServiceGroupCatalog = require('../models/ServiceGroupCatalog');
 const ClaimItem = require('../models/ClaimItem');
 const AnalysisResult = require('../models/AnalysisResult');
 const { reconcileBatch } = require('../reconciliation/reconcileBatch');
@@ -13,8 +14,10 @@ const {
   predictNgaySinhErrorCode,
   predictNgayGiuongErrorCode,
   predictKhamTrungLapErrorCode,
+  predictNhomDvktErrorCode,
 } = require('../reconciliation/predictErrorCode');
 const { buildDoctorSet } = require('../reconciliation/checkBacSi');
+const { buildServiceGroupMap } = require('../reconciliation/checkNhomDvkt');
 const { KET_LUAN } = require('../config/constants');
 
 class NotFoundError extends Error {
@@ -30,7 +33,7 @@ async function getBatchOrThrow(batchId) {
   return batch;
 }
 
-function buildCatalogIndex(drugRows, serviceRows, doctorRows) {
+function buildCatalogIndex(drugRows, serviceRows, doctorRows, serviceGroupRows) {
   const drugByCode = new Map();
   for (const row of drugRows) {
     if (!drugByCode.has(row.maThuoc)) drugByCode.set(row.maThuoc, []);
@@ -42,7 +45,8 @@ function buildCatalogIndex(drugRows, serviceRows, doctorRows) {
     serviceByCode.get(row.maTuongDuong).push(row);
   }
   const doctorSet = buildDoctorSet(doctorRows);
-  return { drugByCode, serviceByCode, doctorSet };
+  const serviceGroupByMa = buildServiceGroupMap(serviceGroupRows);
+  return { drugByCode, serviceByCode, doctorSet, serviceGroupByMa };
 }
 
 function buildDuDoanMaLoi(result, errorCodeIndex, ngayYLenh) {
@@ -69,6 +73,11 @@ function buildDuDoanMaLoi(result, errorCodeIndex, ngayYLenh) {
       byMaLoi.set(w.maLoi, w);
     }
   }
+  if (result.nhomDvktMismatch) {
+    for (const w of predictNhomDvktErrorCode(errorCodeIndex, ngayYLenh)) {
+      byMaLoi.set(w.maLoi, w);
+    }
+  }
 
   return [...byMaLoi.values()];
 }
@@ -83,14 +92,15 @@ async function runAnalysis(batchId) {
     const claimRows = await ClaimItem.find({ batchId }).lean();
     const codes = [...new Set(claimRows.map((row) => row.maChiPhi).filter(Boolean))];
 
-    const [drugRows, serviceRows, errorCodeRows, doctorRows] = await Promise.all([
+    const [drugRows, serviceRows, errorCodeRows, doctorRows, serviceGroupRows] = await Promise.all([
       DrugCatalogMaster.find({ maThuoc: { $in: codes } }).lean(),
       ServiceCatalogMaster.find({ maTuongDuong: { $in: codes } }).lean(),
       ErrorCodeCatalog.find({ active: true }).lean(),
       DoctorCatalogMaster.find({}).lean(),
+      ServiceGroupCatalog.find({ ma: { $in: codes } }).lean(),
     ]);
 
-    const catalogIndex = buildCatalogIndex(drugRows, serviceRows, doctorRows);
+    const catalogIndex = buildCatalogIndex(drugRows, serviceRows, doctorRows, serviceGroupRows);
     const errorCodeIndex = buildErrorCodeIndex(errorCodeRows);
     const results = reconcileBatch(claimRows, catalogIndex);
 

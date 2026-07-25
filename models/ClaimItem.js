@@ -19,6 +19,7 @@ const claimItemSchema = new mongoose.Schema({
   maKhoa: { type: String, trim: true },
   maBacSi: { type: String, trim: true },
   maGiuong: { type: String, trim: true },
+  maNhom: { type: String, trim: true },
   loaiChiPhi: { type: String, trim: true },
   maChiPhi: { type: String, required: true, trim: true },
   tenChiPhi: { type: String, trim: true },

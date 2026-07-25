@@ -4,6 +4,7 @@ const { compareDrugFields, compareServiceFields } = require('./compareFields');
 const { classifyRejectReason } = require('./classifyRejectReason');
 const { checkBacSi } = require('./checkBacSi');
 const { checkNgaySinh } = require('./checkNgaySinh');
+const { checkNhomDvkt } = require('./checkNhomDvkt');
 const { KET_LUAN, LOAI_CHI_PHI, REJECT_REASON_CATEGORY } = require('../config/constants');
 
 function pickCandidateSetForRow(errorRow, catalogIndex) {
@@ -100,10 +101,11 @@ function reconcileChiPhiRow(errorRow, catalogIndex) {
   return { ketLuan, chiTietLech, rejectReasonCategory, ghiChu };
 }
 
-// Mã bác sĩ hợp lệ (theo mã CCHN) and ngày sinh (vs. số CCCD) are independent checks
-// from chi phí catalog matching, so they're layered on as extra ghi chú rather than
-// folded into pickCandidateSetForRow/ketLuan above — keeps ketLuan's
-// existing meaning (per README) untouched.
+// Mã bác sĩ hợp lệ (theo mã CCHN), ngày sinh (vs. số CCCD), and mã nhóm DVKT (vs.
+// ServiceGroupCatalog) are independent checks from chi phí catalog matching, so
+// they're layered on as extra ghi chú rather than folded into
+// pickCandidateSetForRow/ketLuan above — keeps ketLuan's existing meaning
+// (per README) untouched.
 function reconcileRow(errorRow, catalogIndex) {
   const result = reconcileChiPhiRow(errorRow, catalogIndex);
 
@@ -117,6 +119,12 @@ function reconcileRow(errorRow, catalogIndex) {
   result.ngaySinhMismatch = Boolean(ngaySinhNote);
   if (ngaySinhNote) {
     result.ghiChu = [...result.ghiChu, ngaySinhNote];
+  }
+
+  const nhomDvktNote = checkNhomDvkt(errorRow, catalogIndex.serviceGroupByMa);
+  result.nhomDvktMismatch = Boolean(nhomDvktNote);
+  if (nhomDvktNote) {
+    result.ghiChu = [...result.ghiChu, nhomDvktNote];
   }
 
   return result;

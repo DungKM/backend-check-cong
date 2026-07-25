@@ -94,6 +94,7 @@ function buildCostRow(type, detail, header, warnings) {
     maKhoa: get('maKhoa'),
     maBacSi: get('maBacSi'),
     maGiuong: get('maGiuong'),
+    maNhom: get('maNhom'),
     loaiChiPhi: config.loaiChiPhi,
     maChiPhi,
     tenChiPhi: get('tenChiPhi'),

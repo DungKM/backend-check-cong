@@ -58,6 +58,9 @@ const XML3_ALIASES = {
   // Non-empty only on ngày-giường (bed-day) DVKT lines — the reliable signal for
   // "this line is a bed charge", unlike keyword-matching TEN_DICH_VU (see checkNgayGiuong.js).
   maGiuong: ['MA_GIUONG'],
+  // Mã nhóm chi phí (theo QĐ 5937) mà cơ sở khai báo khi thanh toán DVKT — đối chiếu
+  // với MANHOM_5937 chuẩn theo mã DVKT trong ServiceGroupCatalog, xem checkNhomDvkt.js.
+  maNhom: ['MA_NHOM'],
 };
 
 // XML types that carry cost/claim-line data consumable by the reconciliation engine.

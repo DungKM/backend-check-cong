@@ -145,4 +145,23 @@ describe('reconcileRow', () => {
     expect(result.ghiChu).toEqual([]);
     expect(result.ngaySinhMismatch).toBe(false);
   });
+
+  test('mã nhóm DVKT khai báo sai so với danh mục -> ghi chú flagged independently of chi phí ketLuan', () => {
+    const catalogIndex = buildCatalogIndex({ drugs: [baseDrug] });
+    catalogIndex.serviceGroupByMa = new Map([['T001', '8']]);
+    const errorRow = { ...baseErrorRow, maNhom: '3' };
+    const result = reconcileRow(errorRow, catalogIndex);
+    expect(result.ketLuan).toBe('KHONG_LIEN_QUAN_DANH_MUC');
+    expect(result.ghiChu.some((g) => g.includes('T001'))).toBe(true);
+    expect(result.nhomDvktMismatch).toBe(true);
+  });
+
+  test('mã nhóm DVKT khai báo khớp danh mục -> no extra ghi chú', () => {
+    const catalogIndex = buildCatalogIndex({ drugs: [baseDrug] });
+    catalogIndex.serviceGroupByMa = new Map([['T001', '8']]);
+    const errorRow = { ...baseErrorRow, maNhom: '8' };
+    const result = reconcileRow(errorRow, catalogIndex);
+    expect(result.ghiChu).toEqual([]);
+    expect(result.nhomDvktMismatch).toBe(false);
+  });
 });
