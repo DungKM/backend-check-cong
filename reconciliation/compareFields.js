@@ -54,4 +54,19 @@ function compareServiceFields(errorRow, catalogRow) {
   return diffs;
 }
 
-module.exports = { compareDrugFields, compareServiceFields, valuesDiffer };
+const VAT_TU_FIELD_LABELS = {
+  tenChiPhi: CHI_TIET_LECH_TRUONG.TEN_VAT_TU,
+};
+
+function compareVatTuFields(errorRow, catalogRow) {
+  const diffs = [];
+  if (valuesDiffer(errorRow.tenChiPhi, catalogRow.tenVatTu)) {
+    diffs.push(diffEntry(VAT_TU_FIELD_LABELS.tenChiPhi, errorRow.tenChiPhi, catalogRow.tenVatTu));
+  }
+  if (errorRow.donGia !== null && errorRow.donGia !== undefined && valuesDiffer(errorRow.donGia, catalogRow.donGiaBH)) {
+    diffs.push(diffEntry(CHI_TIET_LECH_TRUONG.DON_GIA, errorRow.donGia, catalogRow.donGiaBH));
+  }
+  return diffs;
+}
+
+module.exports = { compareDrugFields, compareServiceFields, compareVatTuFields, valuesDiffer };

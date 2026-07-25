@@ -7,6 +7,7 @@ const CATALOG_UPLOAD_LABELS = {
   errorCode: 'danh mục mã lỗi',
   doctor: 'danh mục bác sĩ',
   serviceGroup: 'danh mục mã nhóm DVKT',
+  vatTu: 'danh mục vật tư y tế',
 };
 
 const importCatalog = asyncHandler(async (req, res) => {

@@ -4,6 +4,7 @@ const ServiceCatalogMaster = require('../models/ServiceCatalogMaster');
 const ErrorCodeCatalog = require('../models/ErrorCodeCatalog');
 const DoctorCatalogMaster = require('../models/DoctorCatalogMaster');
 const ServiceGroupCatalog = require('../models/ServiceGroupCatalog');
+const VatTuCatalogMaster = require('../models/VatTuCatalogMaster');
 const ClaimItem = require('../models/ClaimItem');
 const AnalysisResult = require('../models/AnalysisResult');
 const { reconcileBatch } = require('../reconciliation/reconcileBatch');
@@ -34,7 +35,7 @@ async function getBatchOrThrow(batchId) {
   return batch;
 }
 
-function buildCatalogIndex(drugRows, serviceRows, doctorRows, serviceGroupRows) {
+function buildCatalogIndex(drugRows, serviceRows, doctorRows, serviceGroupRows, vatTuRows) {
   const drugByCode = new Map();
   for (const row of drugRows) {
     if (!drugByCode.has(row.maThuoc)) drugByCode.set(row.maThuoc, []);
@@ -45,9 +46,14 @@ function buildCatalogIndex(drugRows, serviceRows, doctorRows, serviceGroupRows) 
     if (!serviceByCode.has(row.maTuongDuong)) serviceByCode.set(row.maTuongDuong, []);
     serviceByCode.get(row.maTuongDuong).push(row);
   }
+  const vatTuByCode = new Map();
+  for (const row of vatTuRows) {
+    if (!vatTuByCode.has(row.maVatTu)) vatTuByCode.set(row.maVatTu, []);
+    vatTuByCode.get(row.maVatTu).push(row);
+  }
   const doctorSet = buildDoctorSet(doctorRows);
   const serviceGroupByMa = buildServiceGroupMap(serviceGroupRows);
-  return { drugByCode, serviceByCode, doctorSet, serviceGroupByMa };
+  return { drugByCode, serviceByCode, vatTuByCode, doctorSet, serviceGroupByMa };
 }
 
 function buildDuDoanMaLoi(result, errorCodeIndex, ngayYLenh) {
@@ -98,15 +104,16 @@ async function runAnalysis(batchId) {
     const claimRows = await ClaimItem.find({ batchId }).lean();
     const codes = [...new Set(claimRows.map((row) => row.maChiPhi).filter(Boolean))];
 
-    const [drugRows, serviceRows, errorCodeRows, doctorRows, serviceGroupRows] = await Promise.all([
+    const [drugRows, serviceRows, errorCodeRows, doctorRows, serviceGroupRows, vatTuRows] = await Promise.all([
       DrugCatalogMaster.find({ maThuoc: { $in: codes } }).lean(),
       ServiceCatalogMaster.find({ maTuongDuong: { $in: codes } }).lean(),
       ErrorCodeCatalog.find({ active: true }).lean(),
       DoctorCatalogMaster.find({}).lean(),
       ServiceGroupCatalog.find({ ma: { $in: codes } }).lean(),
+      VatTuCatalogMaster.find({ maVatTu: { $in: codes } }).lean(),
     ]);
 
-    const catalogIndex = buildCatalogIndex(drugRows, serviceRows, doctorRows, serviceGroupRows);
+    const catalogIndex = buildCatalogIndex(drugRows, serviceRows, doctorRows, serviceGroupRows, vatTuRows);
     const errorCodeIndex = buildErrorCodeIndex(errorCodeRows);
     const results = reconcileBatch(claimRows, catalogIndex);
 

@@ -1,5 +1,6 @@
 const {
   KET_LUAN,
+  LOAI_CHI_PHI,
   REJECT_REASON_CATEGORY,
   MA_LOI_AP_DUNG_TRUONG,
   BAC_SI_KEYWORDS,
@@ -55,14 +56,18 @@ function activeOn(rows, ngayYLenh) {
 }
 
 /**
- * result: { ketLuan, chiTietLech } from reconcileRow. For LECH_DU_LIEU, each
+ * result: { ketLuan, chiTietLech, loai } from reconcileRow. For LECH_DU_LIEU, each
  * chiTietLech entry's `truong` (e.g. "Đơn giá", "Hàm lượng") is matched against
  * mã lỗi tagged with that exact apDungTruong, so a price mismatch and a hàm lượng
  * mismatch surface distinct codes instead of one blanket "sai danh mục" warning.
- * KHONG_TIM_THAY is matched against mã lỗi tagged KHONG_TIM_THAY. Untagged mã lỗi
- * in the row's nhómLỗi are only used when nothing more specific matched.
+ * KHONG_TIM_THAY is matched against mã lỗi tagged KHONG_TIM_THAY — except for
+ * `loai === VAT_TU`, which uses the scoped KHONG_TIM_THAY_VAT_TU tag instead (and
+ * does NOT fall back to the generic KHONG_TIM_THAY tag), so a VTYT-not-found row
+ * predicts only VTYT-specific mã lỗi (ML016/ML017) rather than every
+ * KHONG_TIM_THAY-tagged code meant for thuốc/DVKT (ML003/ML012) too. Untagged mã
+ * lỗi in the row's nhómLỗi are only used when nothing more specific matched.
  */
-function predictErrorCode({ ketLuan, chiTietLech }, errorCodeIndex, ngayYLenh) {
+function predictErrorCode({ ketLuan, chiTietLech, loai }, errorCodeIndex, ngayYLenh) {
   const nhomLoi = ketLuanToNhomLoi(ketLuan);
   if (!nhomLoi) return [];
 
@@ -75,8 +80,11 @@ function predictErrorCode({ ketLuan, chiTietLech }, errorCodeIndex, ngayYLenh) {
   }
 
   if (ketLuan === KET_LUAN.KHONG_TIM_THAY) {
-    const specific = errorCodeIndex.byField.get(MA_LOI_AP_DUNG_TRUONG.KHONG_TIM_THAY) || [];
-    addAll(specific);
+    if (loai === LOAI_CHI_PHI.VAT_TU) {
+      addAll(errorCodeIndex.byField.get(MA_LOI_AP_DUNG_TRUONG.KHONG_TIM_THAY_VAT_TU) || []);
+    } else {
+      addAll(errorCodeIndex.byField.get(MA_LOI_AP_DUNG_TRUONG.KHONG_TIM_THAY) || []);
+    }
     if (matched.size === 0) addAll(errorCodeIndex.byNhomLoi.get(nhomLoi) || []);
     return [...matched.values()];
   }

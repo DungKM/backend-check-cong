@@ -51,16 +51,17 @@ const XML2_ALIASES = {
   tyLeTtBh: ['TYLE_TT_BH'],
 };
 
-// CHITIEU_CHITIET_DVKT_VTYT (XML3) mixes two line kinds: dịch vụ kỹ thuật (MA_DICH_VU)
-// and vật tư y tế (MA_VAT_TU, e.g. "N03.01.070.0976.000.0007" — a different code format,
-// no matching master catalog yet). Only MA_DICH_VU lines are reconciled for now; VTYT
-// lines are recognized and skipped explicitly (see xmlClaimParser.buildCostRow) rather
-// than silently mismatched against the DVKT catalog.
+// CHITIEU_CHITIET_DVKT_VTYT (XML3) mixes two line kinds: dịch vụ kỹ thuật (MA_DICH_VU,
+// reconciled against ServiceCatalogMaster) and vật tư y tế (MA_VAT_TU, e.g.
+// "N03.01.070.0976.000.0007" — a different code format, reconciled against
+// VatTuCatalogMaster). xmlClaimParser.buildCostRow tells the two apart by which of
+// MA_DICH_VU/MA_VAT_TU is present on the line and tags loaiChiPhi accordingly.
 const XML3_ALIASES = {
   maLK: ['MA_LK'],
   maChiPhi: ['MA_DICH_VU'],
   maVatTu: ['MA_VAT_TU'],
   tenChiPhi: ['TEN_DICH_VU'],
+  tenVatTu: ['TEN_VAT_TU'],
   donGia: ['DON_GIA_BH'],
   ttThau: ['TT_THAU'],
   soLuong: ['SO_LUONG'],

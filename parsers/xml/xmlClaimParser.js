@@ -2,6 +2,7 @@ const { XMLParser } = require('fast-xml-parser');
 const AdmZip = require('adm-zip');
 const { XML1_ALIASES, COST_XML_TYPES } = require('./xmlTagAliases');
 const { bhytDateToDate } = require('../../utils/dateUtils');
+const { LOAI_CHI_PHI } = require('../../config/constants');
 
 const DETAIL_ARRAY_TAGS = ['HOSO', 'FILEHOSO', ...Object.values(COST_XML_TYPES).map((c) => c.detailTag)];
 
@@ -77,14 +78,11 @@ function buildCostRow(type, detail, header, warnings) {
   const get = (field) => pick(detail, config.aliases[field] || []);
 
   const maLK = get('maLK') || header.maLK || '';
-  const maChiPhi = get('maChiPhi');
+  const maDichVu = get('maChiPhi');
+  const maVatTu = !maDichVu ? get('maVatTu') : '';
+  const isVatTu = Boolean(maVatTu);
+  const maChiPhi = isVatTu ? maVatTu : maDichVu;
   if (!maChiPhi) {
-    const maVatTu = get('maVatTu');
-    if (maVatTu) {
-      // Vật tư y tế line — no VTYT master catalog exists yet, so it's out of scope
-      // for reconciliation rather than a parse defect. See xmlTagAliases.js note.
-      return null;
-    }
     warnings.push(`Dòng ${type} (MA_LK=${maLK || '?'}): thiếu mã chi phí, đã bỏ qua`);
     return null;
   }
@@ -113,9 +111,9 @@ function buildCostRow(type, detail, header, warnings) {
     maNhom: get('maNhom'),
     mucHuong: toNumber(get('mucHuong')),
     tyLeTtBh: toNumber(get('tyLeTtBh')),
-    loaiChiPhi: config.loaiChiPhi,
+    loaiChiPhi: isVatTu ? LOAI_CHI_PHI.VAT_TU : config.loaiChiPhi,
     maChiPhi,
-    tenChiPhi: get('tenChiPhi'),
+    tenChiPhi: isVatTu ? get('tenVatTu') : get('tenChiPhi'),
     soDangKy: get('soDangKy'),
     ttThau: get('ttThau'),
     donViTinh: get('donViTinh'),

@@ -1,6 +1,6 @@
 const { classifyChiPhi } = require('./classifyChiPhi');
 const { findValidCatalogRow } = require('./matchCatalogRow');
-const { compareDrugFields, compareServiceFields } = require('./compareFields');
+const { compareDrugFields, compareServiceFields, compareVatTuFields } = require('./compareFields');
 const { classifyRejectReason } = require('./classifyRejectReason');
 const { checkBacSi } = require('./checkBacSi');
 const { checkNgaySinh } = require('./checkNgaySinh');
@@ -10,30 +10,42 @@ const { KET_LUAN, LOAI_CHI_PHI, REJECT_REASON_CATEGORY } = require('../config/co
 
 function pickCandidateSetForRow(errorRow, catalogIndex) {
   const loai = classifyChiPhi(errorRow.loaiChiPhi);
-  const drugCandidates = catalogIndex.drugByCode.get(errorRow.maChiPhi) || [];
-  const serviceCandidates = catalogIndex.serviceByCode.get(errorRow.maChiPhi) || [];
+  const byLoai = {
+    [LOAI_CHI_PHI.THUOC]: {
+      candidates: catalogIndex.drugByCode.get(errorRow.maChiPhi) || [],
+      compareFn: compareDrugFields,
+    },
+    [LOAI_CHI_PHI.DICH_VU]: {
+      candidates: catalogIndex.serviceByCode.get(errorRow.maChiPhi) || [],
+      compareFn: compareServiceFields,
+    },
+    [LOAI_CHI_PHI.VAT_TU]: {
+      candidates: (catalogIndex.vatTuByCode || new Map()).get(errorRow.maChiPhi) || [],
+      compareFn: compareVatTuFields,
+    },
+  };
 
-  if (loai === LOAI_CHI_PHI.THUOC) {
-    return { candidates: drugCandidates, compareFn: compareDrugFields, ghiChu: [] };
-  }
-  if (loai === LOAI_CHI_PHI.DICH_VU) {
-    return { candidates: serviceCandidates, compareFn: compareServiceFields, ghiChu: [] };
+  if (byLoai[loai]) {
+    return { ...byLoai[loai], ghiChu: [], loai };
   }
 
   // "Loại chi phí" text didn't match a known keyword — fall back to whichever
-  // catalog actually has the code, so the row can still be reconciled.
-  const ghiChu = ['Không xác định được loại chi phí (thuốc/dịch vụ) từ "Loại chi phí"'];
-  if (drugCandidates.length > 0 && serviceCandidates.length === 0) {
-    return { candidates: drugCandidates, compareFn: compareDrugFields, ghiChu };
+  // catalog(s) actually have the code, so the row can still be reconciled.
+  // Priority (thuốc > dịch vụ > vật tư) only matters when the code collides
+  // across more than one catalog.
+  const ghiChu = ['Không xác định được loại chi phí (thuốc/dịch vụ/vật tư) từ "Loại chi phí"'];
+  const priority = [LOAI_CHI_PHI.THUOC, LOAI_CHI_PHI.DICH_VU, LOAI_CHI_PHI.VAT_TU];
+  const matches = priority.filter((l) => byLoai[l].candidates.length > 0);
+
+  if (matches.length > 1) {
+    ghiChu.push('Mã chi phí tồn tại ở nhiều hơn 1 danh mục (thuốc/dịch vụ/vật tư), đã ưu tiên danh mục thuốc');
   }
-  if (serviceCandidates.length > 0 && drugCandidates.length === 0) {
-    return { candidates: serviceCandidates, compareFn: compareServiceFields, ghiChu };
+
+  const picked = matches[0];
+  if (!picked) {
+    return { candidates: [], compareFn: compareDrugFields, ghiChu, loai };
   }
-  if (drugCandidates.length > 0 && serviceCandidates.length > 0) {
-    ghiChu.push('Mã chi phí tồn tại ở cả hai danh mục thuốc và dịch vụ, đã ưu tiên danh mục thuốc');
-    return { candidates: drugCandidates, compareFn: compareDrugFields, ghiChu };
-  }
-  return { candidates: [], compareFn: compareDrugFields, ghiChu };
+  return { ...byLoai[picked], ghiChu, loai: picked };
 }
 
 function pickWithoutDateFilter(candidates) {
@@ -41,8 +53,20 @@ function pickWithoutDateFilter(candidates) {
   return { row: sorted[0], ambiguous: candidates.length > 1 };
 }
 
+// VatTuCatalogMaster carries no tuNgay/denNgay (no bidding-date validity window
+// modeled for VTYT — see VatTuCatalogMaster.js), so candidates are never date-
+// filtered; ties (same mã vật tư across multiple TT_THAU/MA_CSKCB rows) break on
+// most-recently-updated.
+function pickVatTuCandidate(candidates) {
+  if (candidates.length === 1) return { row: candidates[0], ambiguous: false };
+  const sorted = [...candidates].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+  return { row: sorted[0], ambiguous: true };
+}
+
 function reconcileChiPhiRow(errorRow, catalogIndex) {
-  const { candidates, compareFn, ghiChu } = pickCandidateSetForRow(errorRow, catalogIndex);
+  const { candidates, compareFn, ghiChu, loai } = pickCandidateSetForRow(errorRow, catalogIndex);
   const { category: rejectReasonCategory } = classifyRejectReason(errorRow.lyDoTuChoi);
 
   if (!candidates || candidates.length === 0) {
@@ -50,6 +74,7 @@ function reconcileChiPhiRow(errorRow, catalogIndex) {
       ketLuan: KET_LUAN.KHONG_TIM_THAY,
       chiTietLech: [],
       rejectReasonCategory,
+      loai,
       ghiChu: [
         ...ghiChu,
         'Mã chi phí không có trong danh mục bệnh viện — có thể mã thầu đã hết hạn hoặc nhập sai mã',
@@ -61,7 +86,9 @@ function reconcileChiPhiRow(errorRow, catalogIndex) {
   let ambiguous = false;
   let matchedCount = candidates.length;
 
-  if (!errorRow.ngayYLenh) {
+  if (loai === LOAI_CHI_PHI.VAT_TU) {
+    ({ row, ambiguous } = pickVatTuCandidate(candidates));
+  } else if (!errorRow.ngayYLenh) {
     ghiChu.push('Thiếu Ngày y lệnh, không thể lọc theo thời hạn hiệu lực của danh mục');
     ({ row, ambiguous } = pickWithoutDateFilter(candidates));
   } else {
@@ -73,6 +100,7 @@ function reconcileChiPhiRow(errorRow, catalogIndex) {
       ketLuan: KET_LUAN.KHONG_TIM_THAY,
       chiTietLech: [],
       rejectReasonCategory,
+      loai,
       ghiChu: [
         ...ghiChu,
         'Có mã trong danh mục nhưng không còn hiệu lực tại Ngày y lệnh (mã thầu có thể đã hết hạn)',
@@ -81,9 +109,13 @@ function reconcileChiPhiRow(errorRow, catalogIndex) {
   }
 
   if (ambiguous) {
-    ghiChu.push(
-      `Có ${matchedCount} dòng danh mục cùng hiệu lực, đã chọn dòng có TU_NGAY/TT_THAU mới nhất`
-    );
+    if (loai === LOAI_CHI_PHI.VAT_TU) {
+      ghiChu.push(`Có ${candidates.length} dòng vật tư cùng mã, đã chọn dòng cập nhật gần nhất`);
+    } else {
+      ghiChu.push(
+        `Có ${matchedCount} dòng danh mục cùng hiệu lực, đã chọn dòng có TU_NGAY/TT_THAU mới nhất`
+      );
+    }
   }
 
   const chiTietLech = compareFn(errorRow, row);
@@ -99,7 +131,7 @@ function reconcileChiPhiRow(errorRow, catalogIndex) {
   const ketLuan =
     chiTietLech.length > 0 ? KET_LUAN.LECH_DU_LIEU : KET_LUAN.KHONG_LIEN_QUAN_DANH_MUC;
 
-  return { ketLuan, chiTietLech, rejectReasonCategory, ghiChu };
+  return { ketLuan, chiTietLech, rejectReasonCategory, loai, ghiChu };
 }
 
 // Mã bác sĩ hợp lệ (theo mã CCHN), ngày sinh (vs. số CCCD), mã nhóm DVKT (vs.

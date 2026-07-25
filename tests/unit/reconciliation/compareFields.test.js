@@ -1,4 +1,4 @@
-const { compareDrugFields, compareServiceFields } = require('../../../reconciliation/compareFields');
+const { compareDrugFields, compareServiceFields, compareVatTuFields } = require('../../../reconciliation/compareFields');
 
 describe('compareDrugFields', () => {
   const catalogRow = {
@@ -64,5 +64,35 @@ describe('compareServiceFields', () => {
     const errorRow = { tenChiPhi: 'kham noi khoa' };
     const catalogRow = { tenDvktPheDuyet: 'Khám Nội Khoa' };
     expect(compareServiceFields(errorRow, catalogRow)).toEqual([]);
+  });
+});
+
+describe('compareVatTuFields', () => {
+  test('all fields match -> empty diff', () => {
+    const errorRow = { tenChiPhi: 'Kim luồn tĩnh mạch', donGia: 15000 };
+    const catalogRow = { tenVatTu: 'Kim luồn tĩnh mạch', donGiaBH: 15000 };
+    expect(compareVatTuFields(errorRow, catalogRow)).toEqual([]);
+  });
+
+  test('tên vật tư differs -> flagged', () => {
+    const errorRow = { tenChiPhi: 'Kim luồn tĩnh mạch 22G', donGia: 15000 };
+    const catalogRow = { tenVatTu: 'Kim luồn tĩnh mạch 24G', donGiaBH: 15000 };
+    const diff = compareVatTuFields(errorRow, catalogRow);
+    expect(diff).toEqual([
+      { truong: 'Tên vật tư', giaTriXML: 'Kim luồn tĩnh mạch 22G', giaTriDanhMuc: 'Kim luồn tĩnh mạch 24G' },
+    ]);
+  });
+
+  test('đơn giá differs -> flagged', () => {
+    const errorRow = { tenChiPhi: 'Băng gạc', donGia: 6000 };
+    const catalogRow = { tenVatTu: 'Băng gạc', donGiaBH: 5000 };
+    const diff = compareVatTuFields(errorRow, catalogRow);
+    expect(diff).toEqual([{ truong: 'Đơn giá', giaTriXML: '6000', giaTriDanhMuc: '5000' }]);
+  });
+
+  test('donGia null/undefined (not on the claim line) -> đơn giá not compared', () => {
+    const errorRow = { tenChiPhi: 'Băng gạc', donGia: null };
+    const catalogRow = { tenVatTu: 'Băng gạc', donGiaBH: 5000 };
+    expect(compareVatTuFields(errorRow, catalogRow)).toEqual([]);
   });
 });

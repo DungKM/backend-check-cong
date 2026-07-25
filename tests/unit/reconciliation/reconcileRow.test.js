@@ -4,7 +4,7 @@ function d(str) {
   return new Date(str);
 }
 
-function buildCatalogIndex({ drugs = [], services = [] } = {}) {
+function buildCatalogIndex({ drugs = [], services = [], vatTus = [] } = {}) {
   const drugByCode = new Map();
   for (const drug of drugs) {
     if (!drugByCode.has(drug.maThuoc)) drugByCode.set(drug.maThuoc, []);
@@ -15,7 +15,12 @@ function buildCatalogIndex({ drugs = [], services = [] } = {}) {
     if (!serviceByCode.has(service.maTuongDuong)) serviceByCode.set(service.maTuongDuong, []);
     serviceByCode.get(service.maTuongDuong).push(service);
   }
-  return { drugByCode, serviceByCode };
+  const vatTuByCode = new Map();
+  for (const vatTu of vatTus) {
+    if (!vatTuByCode.has(vatTu.maVatTu)) vatTuByCode.set(vatTu.maVatTu, []);
+    vatTuByCode.get(vatTu.maVatTu).push(vatTu);
+  }
+  return { drugByCode, serviceByCode, vatTuByCode };
 }
 
 const baseDrug = {
@@ -180,5 +185,52 @@ describe('reconcileRow', () => {
     const result = reconcileRow(errorRow, catalogIndex);
     expect(result.ghiChu).toEqual([]);
     expect(result.mucHuongMismatch).toBe(false);
+  });
+
+  describe('vật tư y tế (VAT_TU)', () => {
+    const baseVatTu = { maVatTu: 'VT001', tenVatTu: 'Kim luồn tĩnh mạch', donGiaBH: 15000, updatedAt: d('2024-06-01') };
+    const baseVatTuRow = {
+      maChiPhi: 'VT001',
+      loaiChiPhi: 'VAT_TU',
+      tenChiPhi: 'Kim luồn tĩnh mạch',
+      donGia: 15000,
+      lyDoTuChoi: '',
+    };
+
+    test('mã vật tư không có trong danh mục -> KHONG_TIM_THAY, loai VAT_TU', () => {
+      const catalogIndex = buildCatalogIndex();
+      const result = reconcileRow(baseVatTuRow, catalogIndex);
+      expect(result.ketLuan).toBe('KHONG_TIM_THAY');
+      expect(result.loai).toBe('VAT_TU');
+    });
+
+    test('mã vật tư có trong danh mục, mọi trường khớp -> KHONG_LIEN_QUAN_DANH_MUC (không lọc theo ngày y lệnh)', () => {
+      const catalogIndex = buildCatalogIndex({ vatTus: [baseVatTu] });
+      // Deliberately no ngayYLenh — VatTuCatalogMaster has no tuNgay, so date
+      // filtering must not apply and must not produce a "thiếu Ngày y lệnh" ghi chú.
+      const result = reconcileRow(baseVatTuRow, catalogIndex);
+      expect(result.ketLuan).toBe('KHONG_LIEN_QUAN_DANH_MUC');
+      expect(result.chiTietLech).toEqual([]);
+      expect(result.ghiChu).toEqual([]);
+    });
+
+    test('tên vật tư lệch -> LECH_DU_LIEU với chiTietLech đúng', () => {
+      const catalogIndex = buildCatalogIndex({ vatTus: [baseVatTu] });
+      const errorRow = { ...baseVatTuRow, tenChiPhi: 'Kim luồn tĩnh mạch 22G' };
+      const result = reconcileRow(errorRow, catalogIndex);
+      expect(result.ketLuan).toBe('LECH_DU_LIEU');
+      expect(result.chiTietLech).toEqual([
+        { truong: 'Tên vật tư', giaTriXML: 'Kim luồn tĩnh mạch 22G', giaTriDanhMuc: 'Kim luồn tĩnh mạch' },
+      ]);
+    });
+
+    test('nhiều dòng vật tư cùng mã -> chọn dòng cập nhật gần nhất và gắn cờ ambiguous trong ghi chú', () => {
+      const older = { ...baseVatTu, donGiaBH: 20000, updatedAt: d('2023-01-01') };
+      const newer = { ...baseVatTu, donGiaBH: 15000, updatedAt: d('2024-06-01') };
+      const catalogIndex = buildCatalogIndex({ vatTus: [older, newer] });
+      const result = reconcileRow(baseVatTuRow, catalogIndex);
+      expect(result.ketLuan).toBe('KHONG_LIEN_QUAN_DANH_MUC');
+      expect(result.ghiChu.some((g) => g.includes('cùng mã'))).toBe(true);
+    });
   });
 });

@@ -7,6 +7,7 @@ const KET_LUAN = {
 const LOAI_CHI_PHI = {
   THUOC: 'THUOC',
   DICH_VU: 'DICH_VU',
+  VAT_TU: 'VAT_TU',
   KHONG_XAC_DINH: 'KHONG_XAC_DINH',
 };
 
@@ -33,11 +34,18 @@ const CHI_TIET_LECH_TRUONG = {
   DON_VI_TINH: 'Đơn vị tính',
   SO_DANG_KY: 'Số đăng ký',
   TEN_DICH_VU: 'Tên dịch vụ',
+  TEN_VAT_TU: 'Tên vật tư',
 };
 
 const MA_LOI_AP_DUNG_TRUONG = {
   ...CHI_TIET_LECH_TRUONG,
   KHONG_TIM_THAY: 'KHONG_TIM_THAY',
+  // Scoped variant of KHONG_TIM_THAY used only for "mã vật tư y tế không có
+  // trong danh mục" (ML016/ML017) — kept separate from the generic
+  // KHONG_TIM_THAY tag (used by ML003/ML012 for DVKT/thuốc) so a VTYT-not-found
+  // row predicts only the VTYT-specific mã lỗi, not every KHONG_TIM_THAY-tagged
+  // code regardless of loại chi phí. See predictErrorCode.js.
+  KHONG_TIM_THAY_VAT_TU: 'KHONG_TIM_THAY_VAT_TU',
   MA_BAC_SI: 'MA_BAC_SI',
   NGAY_SINH: 'NGAY_SINH',
   NGAY_GIUONG: 'NGAY_GIUONG',
@@ -62,12 +70,12 @@ const MUC_HUONG_THE_MAP = {
 // Order matters when multiple categories share keywords: first matching group wins.
 const CHI_PHI_KEYWORDS = {
   [LOAI_CHI_PHI.THUOC]: ['thuoc'],
+  [LOAI_CHI_PHI.VAT_TU]: ['vat tu y te', 'vtyt', 'vat tu'],
   [LOAI_CHI_PHI.DICH_VU]: [
     'dich vu',
     'kham benh',
     'xet nghiem',
     'chan doan hinh anh',
-    'vat tu y te',
     'pttt',
     'giuong',
   ],

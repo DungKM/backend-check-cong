@@ -40,7 +40,7 @@ describe('parseClaimXmlBuffer', () => {
     });
   });
 
-  test('skips vật tư y tế (VTYT) lines silently — no master catalog covers them yet', async () => {
+  test('parses vật tư y tế (VTYT) lines as loaiChiPhi VAT_TU, keyed by MA_VAT_TU', async () => {
     // A CHI_TIET_DVKT line carrying MA_VAT_TU instead of MA_DICH_VU, as real
     // CHITIEU_CHITIET_DVKT_VTYT files do for medical-supply (not DVKT) rows.
     const xml1 = Buffer.from(
@@ -48,7 +48,7 @@ describe('parseClaimXmlBuffer', () => {
       'utf8'
     ).toString('base64');
     const xml3 = Buffer.from(
-      `<?xml version='1.0' encoding='UTF-8'?><CHITIEU_CHITIET_DVKT_VTYT><DSACH_CHI_TIET_DVKT><CHI_TIET_DVKT><MA_LK>LK002</MA_LK><MA_VAT_TU>VT-001</MA_VAT_TU><TEN_VAT_TU>Băng gạc</TEN_VAT_TU><MA_KHOA>K01</MA_KHOA></CHI_TIET_DVKT></DSACH_CHI_TIET_DVKT></CHITIEU_CHITIET_DVKT_VTYT>`,
+      `<?xml version='1.0' encoding='UTF-8'?><CHITIEU_CHITIET_DVKT_VTYT><DSACH_CHI_TIET_DVKT><CHI_TIET_DVKT><MA_LK>LK002</MA_LK><MA_VAT_TU>VT-001</MA_VAT_TU><TEN_VAT_TU>Băng gạc</TEN_VAT_TU><DON_GIA_BH>5000</DON_GIA_BH><SO_LUONG>2</SO_LUONG><MA_KHOA>K01</MA_KHOA></CHI_TIET_DVKT></DSACH_CHI_TIET_DVKT></CHITIEU_CHITIET_DVKT_VTYT>`,
       'utf8'
     ).toString('base64');
     const xml =
@@ -59,8 +59,17 @@ describe('parseClaimXmlBuffer', () => {
       `</DANHSACHHOSO></THONGTINHOSO></GIAMDINHHS>`;
 
     const { rows, warnings } = await parseClaimXmlBuffer(Buffer.from(xml, 'utf8'), 'hoso.xml');
-    expect(rows).toHaveLength(0);
     expect(warnings).toEqual([]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      maLK: 'LK002',
+      loaiChiPhi: 'VAT_TU',
+      maChiPhi: 'VT-001',
+      tenChiPhi: 'Băng gạc',
+      donGia: 5000,
+      soLuong: 2,
+      maKhoa: 'K01',
+    });
   });
 
   test('reports a warning for a truly malformed cost line missing both codes', async () => {

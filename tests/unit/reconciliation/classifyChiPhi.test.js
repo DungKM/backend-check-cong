@@ -23,4 +23,17 @@ describe('classifyChiPhi', () => {
     expect(classifyChiPhi('THUỐC')).toBe('THUOC');
     expect(classifyChiPhi('thuoc')).toBe('THUOC');
   });
+
+  test('classifies "Vật tư y tế" as VAT_TU', () => {
+    expect(classifyChiPhi('Vật tư y tế')).toBe('VAT_TU');
+  });
+
+  test('classifies the canonical enum values coming straight from XML (THUOC/DICH_VU/VAT_TU) by exact match, bypassing keyword matching', () => {
+    // xmlClaimParser.buildCostRow stores these literal strings on ClaimItem.loaiChiPhi
+    // directly — normalizeText would turn "DICH_VU"/"VAT_TU" into "dich_vu"/"vat_tu"
+    // (underscore preserved), which never matches the space-separated keywords below.
+    expect(classifyChiPhi('THUOC')).toBe('THUOC');
+    expect(classifyChiPhi('DICH_VU')).toBe('DICH_VU');
+    expect(classifyChiPhi('VAT_TU')).toBe('VAT_TU');
+  });
 });

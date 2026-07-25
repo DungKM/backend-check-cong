@@ -84,6 +84,25 @@ const SERVICE_GROUP_CATALOG_ALIASES = {
   maNhom: ['manhom_5937', 'manhom', 'ma nhom', 'ma_nhom'],
 };
 
+const VAT_TU_CATALOG_ALIASES = {
+  maVatTu: ['ma_vat_tu', 'ma vat tu'],
+  nhomVatTu: ['nhom_vat_tu', 'nhom vat tu'],
+  tenVatTu: ['ten_vat_tu', 'ten vat tu'],
+  maHieu: ['ma_hieu', 'ma hieu'],
+  hangSx: ['hang_sx', 'hang sx'],
+  donViTinh: ['don_vi_tinh', 'don vi tinh'],
+  donGia: ['don_gia', 'don gia'],
+  donGiaBH: ['don_gia_bh', 'don gia bh'],
+  tyLeTtBh: ['tyle_tt_bh', 'tyle tt bh'],
+  soLuong: ['so_luong', 'so luong'],
+  dinhMuc: ['dinh_muc', 'dinh muc'],
+  nhaThau: ['nha_thau', 'nha thau'],
+  ttThau: ['tt_thau', 'tt thau'],
+  maCSKCB: ['ma_cskcb', 'ma cskcb'],
+  loaiThau: ['loai_thau', 'loai thau'],
+  htThau: ['ht_thau', 'ht thau'],
+};
+
 module.exports = {
   ERROR_REPORT_ALIASES,
   DRUG_CATALOG_ALIASES,
@@ -91,4 +110,5 @@ module.exports = {
   ERROR_CODE_CATALOG_ALIASES,
   DOCTOR_CATALOG_ALIASES,
   SERVICE_GROUP_CATALOG_ALIASES,
+  VAT_TU_CATALOG_ALIASES,
 };

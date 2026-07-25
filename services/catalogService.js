@@ -4,12 +4,14 @@ const ServiceCatalogMaster = require('../models/ServiceCatalogMaster');
 const ErrorCodeCatalog = require('../models/ErrorCodeCatalog');
 const DoctorCatalogMaster = require('../models/DoctorCatalogMaster');
 const ServiceGroupCatalog = require('../models/ServiceGroupCatalog');
+const VatTuCatalogMaster = require('../models/VatTuCatalogMaster');
 const CatalogImport = require('../models/CatalogImport');
 const { parseDrugCatalogWorkbook } = require('../parsers/drugCatalogParser');
 const { parseServiceCatalogWorkbook } = require('../parsers/serviceCatalogParser');
 const { parseErrorCodeCatalogWorkbook } = require('../parsers/errorCodeCatalogParser');
 const { parseDoctorCatalogWorkbook } = require('../parsers/doctorCatalogParser');
 const { parseServiceGroupCatalogWorkbook } = require('../parsers/serviceGroupCatalogParser');
+const { parseVatTuCatalogWorkbook } = require('../parsers/vatTuCatalogParser');
 const { REJECT_REASON_CATEGORY, MA_LOI_MUC_DO, MA_LOI_AP_DUNG_TRUONG } = require('../config/constants');
 const { logger } = require('../utils/logger');
 
@@ -130,6 +132,30 @@ const CATALOG_CONFIG = {
       { key: 'giaSau', header: 'GIASAU', type: 'number', example: 0 },
       { key: 'ghiChu', header: 'GHICHU', type: 'string', example: '' },
       { key: 'maNhom', header: 'MANHOM_5937', type: 'string', example: '8' },
+    ],
+  },
+  vatTu: {
+    model: VatTuCatalogMaster,
+    parse: parseVatTuCatalogWorkbook,
+    uniqueKey: (row) => ({ maVatTu: row.maVatTu, ttThau: row.ttThau, maCSKCB: row.maCSKCB }),
+    searchFields: ['maVatTu', 'tenVatTu', 'nhomVatTu'],
+    fields: [
+      { key: 'maVatTu', header: 'MA_VAT_TU', type: 'string', required: true, example: 'VT001' },
+      { key: 'nhomVatTu', header: 'NHOM_VAT_TU', type: 'string', example: 'Vật tư tiêu hao' },
+      { key: 'tenVatTu', header: 'TEN_VAT_TU', type: 'string', required: true, example: 'Kim luồn tĩnh mạch' },
+      { key: 'maHieu', header: 'MA_HIEU', type: 'string', example: '' },
+      { key: 'hangSx', header: 'HANG_SX', type: 'string', example: '' },
+      { key: 'donViTinh', header: 'DON_VI_TINH', type: 'string', example: 'Cái' },
+      { key: 'donGia', header: 'DON_GIA', type: 'number', example: 15000 },
+      { key: 'donGiaBH', header: 'DON_GIA_BH', type: 'number', example: 15000 },
+      { key: 'tyLeTtBh', header: 'TYLE_TT_BH', type: 'number', example: 100 },
+      { key: 'soLuong', header: 'SO_LUONG', type: 'number', example: 1 },
+      { key: 'dinhMuc', header: 'DINH_MUC', type: 'string', example: '' },
+      { key: 'nhaThau', header: 'NHA_THAU', type: 'string', example: '' },
+      { key: 'ttThau', header: 'TT_THAU', type: 'string', example: '' },
+      { key: 'maCSKCB', header: 'MA_CSKCB', type: 'string', example: 'CSKCB01' },
+      { key: 'loaiThau', header: 'LOAI_THAU', type: 'string', example: '' },
+      { key: 'htThau', header: 'HT_THAU', type: 'string', example: '' },
     ],
   },
 };
@@ -294,6 +320,7 @@ function toDuplicateKeyMessage(type) {
   if (type === 'service') return 'Đã tồn tại dòng dịch vụ với cùng mã và từ ngày.';
   if (type === 'doctor') return 'Đã tồn tại bác sĩ với cùng mã CCHN.';
   if (type === 'serviceGroup') return 'Đã tồn tại dòng với cùng mã (MA).';
+  if (type === 'vatTu') return 'Đã tồn tại dòng vật tư với cùng mã, TT thầu và mã CSKCB.';
   return 'Đã tồn tại mã lỗi với cùng từ ngày.';
 }
 

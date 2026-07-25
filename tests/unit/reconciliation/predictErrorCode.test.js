@@ -55,6 +55,20 @@ describe('predictErrorCode', () => {
     expect(result.map((w) => w.maLoi)).toEqual(['L003']);
   });
 
+  test('KHONG_TIM_THAY for loai VAT_TU only matches KHONG_TIM_THAY_VAT_TU, not the generic KHONG_TIM_THAY tag meant for thuốc/DVKT', () => {
+    const rows = [
+      errorCodeRow({ maLoi: 'ML003', tenLoi: 'DVKT không nằm trong danh mục', apDungTruong: 'KHONG_TIM_THAY' }),
+      errorCodeRow({ maLoi: 'ML016', tenLoi: 'VTYT ngoài danh mục', apDungTruong: 'KHONG_TIM_THAY_VAT_TU' }),
+    ];
+    const index = buildErrorCodeIndex(rows);
+
+    const vatTuResult = predictErrorCode({ ketLuan: KET_LUAN.KHONG_TIM_THAY, chiTietLech: [], loai: 'VAT_TU' }, index);
+    expect(vatTuResult.map((w) => w.maLoi)).toEqual(['ML016']);
+
+    const dvktResult = predictErrorCode({ ketLuan: KET_LUAN.KHONG_TIM_THAY, chiTietLech: [], loai: 'DICH_VU' }, index);
+    expect(dvktResult.map((w) => w.maLoi)).toEqual(['ML003']);
+  });
+
   test('untagged mã lỗi only apply as a fallback when nothing specific matched', () => {
     const rows = [
       errorCodeRow({ maLoi: 'L001', tenLoi: 'Sai đơn giá', apDungTruong: 'Đơn giá' }),
