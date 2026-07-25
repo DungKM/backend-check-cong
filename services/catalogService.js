@@ -3,12 +3,17 @@ const DrugCatalogMaster = require('../models/DrugCatalogMaster');
 const ServiceCatalogMaster = require('../models/ServiceCatalogMaster');
 const ErrorCodeCatalog = require('../models/ErrorCodeCatalog');
 const DoctorCatalogMaster = require('../models/DoctorCatalogMaster');
+const ServiceGroupCatalog = require('../models/ServiceGroupCatalog');
 const CatalogImport = require('../models/CatalogImport');
 const { parseDrugCatalogWorkbook } = require('../parsers/drugCatalogParser');
 const { parseServiceCatalogWorkbook } = require('../parsers/serviceCatalogParser');
 const { parseErrorCodeCatalogWorkbook } = require('../parsers/errorCodeCatalogParser');
 const { parseDoctorCatalogWorkbook } = require('../parsers/doctorCatalogParser');
+const { parseServiceGroupCatalogWorkbook } = require('../parsers/serviceGroupCatalogParser');
 const { REJECT_REASON_CATEGORY, MA_LOI_MUC_DO, MA_LOI_AP_DUNG_TRUONG } = require('../config/constants');
+const { logger } = require('../utils/logger');
+
+const IMPORT_CHUNK_SIZE = 2000;
 
 class NotFoundError extends Error {
   constructor(message) {
@@ -110,6 +115,23 @@ const CATALOG_CONFIG = {
       { key: 'maCSKCB', header: 'MA_CSKCB', type: 'string', example: 'CSKCB01' },
     ],
   },
+  serviceGroup: {
+    model: ServiceGroupCatalog,
+    parse: parseServiceGroupCatalogWorkbook,
+    uniqueKey: (row) => ({ ma: row.ma }),
+    searchFields: ['ma', 'ten', 'maGia'],
+    fields: [
+      { key: 'ma', header: 'MA', type: 'string', required: true, example: '10.0811.0559_GT' },
+      { key: 'ten', header: 'TEN', type: 'string', example: 'Phẫu thuật vết thương phần mềm tổn thương gân gấp tề' },
+      { key: 'loaiPTTT', header: 'LOAIPTTT', type: 'string', example: '' },
+      { key: 'maGia', header: 'MAGIA', type: 'string', example: '37.8D05.0559' },
+      { key: 'tenGia', header: 'TENGIA', type: 'string', example: 'Phẫu thuật nối gân hoặc kéo dài gân (tính 1 gân)' },
+      { key: 'gia', header: 'GIA', type: 'number', example: 0 },
+      { key: 'giaSau', header: 'GIASAU', type: 'number', example: 0 },
+      { key: 'ghiChu', header: 'GHICHU', type: 'string', example: '' },
+      { key: 'maNhom', header: 'MANHOM_5937', type: 'string', example: '8' },
+    ],
+  },
 };
 
 function getConfigOrThrow(type) {
@@ -162,46 +184,77 @@ function validateDoc(config, doc, { requireAllFields = true } = {}) {
   }
 }
 
-async function importCatalog({ type, buffer, fileName, userId }) {
+function chunkArray(arr, size) {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+}
+
+// Runs in the background after startImport() has already responded to the HTTP request —
+// parses + bulkWrites in chunks of IMPORT_CHUNK_SIZE so a 77k-row file doesn't hold one
+// giant bulkWrite payload, and saves progress after each chunk so polling getImport() sees
+// rowsInserted/rowsUpdated climb instead of jumping from 0 to done at the very end.
+async function runImportJob(catalogImport, config, buffer) {
+  try {
+    const { rows, warnings } = await config.parse(buffer);
+    catalogImport.rowsParsed = rows.length;
+    catalogImport.warnings = warnings;
+    await catalogImport.save();
+
+    let rowsInserted = 0;
+    let rowsUpdated = 0;
+
+    for (const chunk of chunkArray(rows, IMPORT_CHUNK_SIZE)) {
+      const operations = chunk.map((row) => ({
+        updateOne: {
+          filter: config.uniqueKey(row),
+          update: { $set: { ...row, lastImportId: catalogImport._id, updatedAt: new Date() } },
+          upsert: true,
+        },
+      }));
+      const result = await config.model.bulkWrite(operations);
+      rowsInserted += result.upsertedCount || 0;
+      rowsUpdated += result.modifiedCount || 0;
+
+      catalogImport.rowsInserted = rowsInserted;
+      catalogImport.rowsUpdated = rowsUpdated;
+      await catalogImport.save();
+    }
+
+    catalogImport.status = 'success';
+    await catalogImport.save();
+  } catch (err) {
+    catalogImport.status = 'failed';
+    catalogImport.warnings = [...(catalogImport.warnings || []), `Lỗi xử lý: ${err.message}`];
+    await catalogImport.save().catch(() => {});
+    logger.error(`Import job thất bại (importId=${catalogImport._id}):`, err);
+  }
+}
+
+async function startImport({ type, buffer, fileName, userId }) {
   const config = getConfigOrThrow(type);
-  const { rows, warnings } = await config.parse(buffer);
 
   const catalogImport = await CatalogImport.create({
     catalogType: type,
     fileName,
     importedBy: userId,
-    rowsParsed: rows.length,
-    warnings,
-    status: 'success',
+    status: 'processing',
   });
 
-  let rowsInserted = 0;
-  let rowsUpdated = 0;
+  // Fire-and-forget: don't await, so the HTTP response returns immediately regardless of
+  // file size. runImportJob updates `catalogImport` itself as it progresses/finishes.
+  runImportJob(catalogImport, config, buffer);
 
-  if (rows.length > 0) {
-    const operations = rows.map((row) => ({
-      updateOne: {
-        filter: config.uniqueKey(row),
-        update: { $set: { ...row, lastImportId: catalogImport._id, updatedAt: new Date() } },
-        upsert: true,
-      },
-    }));
-    const result = await config.model.bulkWrite(operations);
-    rowsInserted = result.upsertedCount || 0;
-    rowsUpdated = result.modifiedCount || 0;
-  }
+  return { importId: catalogImport._id, status: catalogImport.status };
+}
 
-  catalogImport.rowsInserted = rowsInserted;
-  catalogImport.rowsUpdated = rowsUpdated;
-  await catalogImport.save();
-
-  return {
-    importId: catalogImport._id,
-    rowsParsed: rows.length,
-    rowsInserted,
-    rowsUpdated,
-    warnings,
-  };
+async function getImport(type, importId) {
+  getConfigOrThrow(type);
+  const record = await CatalogImport.findOne({ _id: importId, catalogType: type })
+    .populate('importedBy', 'username')
+    .lean();
+  if (!record) throw new NotFoundError('Không tìm thấy lượt nhập');
+  return record;
 }
 
 async function listCatalog({ type, q, page = 1, pageSize = 20, activeOn }) {
@@ -240,6 +293,7 @@ function toDuplicateKeyMessage(type) {
   if (type === 'drug') return 'Đã tồn tại dòng thuốc với cùng mã, từ ngày và TT thầu.';
   if (type === 'service') return 'Đã tồn tại dòng dịch vụ với cùng mã và từ ngày.';
   if (type === 'doctor') return 'Đã tồn tại bác sĩ với cùng mã CCHN.';
+  if (type === 'serviceGroup') return 'Đã tồn tại dòng với cùng mã (MA).';
   return 'Đã tồn tại mã lỗi với cùng từ ngày.';
 }
 
@@ -300,7 +354,8 @@ async function generateTemplate(type) {
 }
 
 module.exports = {
-  importCatalog,
+  startImport,
+  getImport,
   listCatalog,
   listImports,
   createItem,

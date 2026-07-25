@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.get('/:type/template', catalogController.downloadTemplate);
 router.get('/:type/imports', catalogController.listImports);
+router.get('/:type/imports/:importId', catalogController.getImport);
 router.get('/:type', catalogController.listCatalog);
 router.post('/:type/import', upload.single('file'), catalogController.importCatalog);
 router.post('/:type', catalogController.createItem);

@@ -69,10 +69,26 @@ const ERROR_CODE_CATALOG_ALIASES = {
   denNgay: ['den_ngay', 'den ngay'],
 };
 
+// Dùng để đối chiếu MA_NHOM trên XML với mã nhóm chuẩn theo dịch vụ — MA là mã dịch
+// vụ/thủ thuật chi tiết (có thể có đuôi phân loại, VD "_GT"), MA_NHOM là mã nhóm chi phí
+// chuẩn cần so sánh.
+const SERVICE_GROUP_CATALOG_ALIASES = {
+  ma: ['ma'],
+  ten: ['ten'],
+  loaiPTTT: ['loaipttt', 'loai pttt'],
+  maGia: ['magia', 'ma gia'],
+  tenGia: ['tengia', 'ten gia'],
+  gia: ['gia'],
+  giaSau: ['giasau', 'gia sau'],
+  ghiChu: ['ghichu', 'ghi chu'],
+  maNhom: ['manhom_5937', 'manhom', 'ma nhom', 'ma_nhom'],
+};
+
 module.exports = {
   ERROR_REPORT_ALIASES,
   DRUG_CATALOG_ALIASES,
   SERVICE_CATALOG_ALIASES,
   ERROR_CODE_CATALOG_ALIASES,
   DOCTOR_CATALOG_ALIASES,
+  SERVICE_GROUP_CATALOG_ALIASES,
 };

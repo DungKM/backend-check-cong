@@ -6,6 +6,7 @@ const CATALOG_UPLOAD_LABELS = {
   service: 'danh mục dịch vụ kỹ thuật',
   errorCode: 'danh mục mã lỗi',
   doctor: 'danh mục bác sĩ',
+  serviceGroup: 'danh mục mã nhóm DVKT',
 };
 
 const importCatalog = asyncHandler(async (req, res) => {
@@ -14,12 +15,20 @@ const importCatalog = asyncHandler(async (req, res) => {
     const label = CATALOG_UPLOAD_LABELS[type] || 'danh mục';
     return res.status(400).json({ message: `Vui lòng chọn file ${label}` });
   }
-  const result = await catalogService.importCatalog({
+  // Trả về ngay khi job đã được tạo — không chờ parse/ghi xong, tránh timeout với file
+  // hàng chục nghìn dòng. Client tự polling GET /:type/imports/:importId để lấy tiến độ.
+  const result = await catalogService.startImport({
     type,
     userId: req.user.id,
     buffer: req.file.buffer,
     fileName: req.file.originalname,
   });
+  res.status(202).json(result);
+});
+
+const getImport = asyncHandler(async (req, res) => {
+  const { type, importId } = req.params;
+  const result = await catalogService.getImport(type, importId);
   res.json(result);
 });
 
@@ -64,6 +73,7 @@ const downloadTemplate = asyncHandler(async (req, res) => {
 
 module.exports = {
   importCatalog,
+  getImport,
   listCatalog,
   listImports,
   createItem,

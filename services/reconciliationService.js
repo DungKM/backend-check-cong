@@ -12,6 +12,7 @@ const {
   predictBacSiErrorCode,
   predictNgaySinhErrorCode,
   predictNgayGiuongErrorCode,
+  predictKhamTrungLapErrorCode,
 } = require('../reconciliation/predictErrorCode');
 const { buildDoctorSet } = require('../reconciliation/checkBacSi');
 const { KET_LUAN } = require('../config/constants');
@@ -60,6 +61,11 @@ function buildDuDoanMaLoi(result, errorCodeIndex, ngayYLenh) {
   }
   if (result.ngayGiuongMismatch) {
     for (const w of predictNgayGiuongErrorCode(errorCodeIndex, ngayYLenh)) {
+      byMaLoi.set(w.maLoi, w);
+    }
+  }
+  if (result.khamTrungLapMismatch) {
+    for (const w of predictKhamTrungLapErrorCode(errorCodeIndex, ngayYLenh)) {
       byMaLoi.set(w.maLoi, w);
     }
   }

@@ -27,6 +27,20 @@ afterAll(async () => {
   await mongod.stop();
 });
 
+// Import now responds immediately with { importId, status: 'processing' } while the
+// actual parse+bulkWrite runs in the background (see catalogService.startImport) — tests
+// poll the same endpoint a real client would use to know when it's actually done.
+async function waitForImport(type, importId, token) {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const res = await request(app)
+      .get(`/api/catalogs/${type}/imports/${importId}`)
+      .set('Authorization', `Bearer ${token}`);
+    if (res.body.status !== 'processing') return res.body;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Import ${importId} did not finish in time`);
+}
+
 async function buildDrugCatalogWorkbook() {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('DanhMucThuoc');
@@ -113,16 +127,21 @@ describe('End-to-end reconciliation flow', () => {
       .post('/api/catalogs/drug/import')
       .set('Authorization', `Bearer ${token}`)
       .attach('file', drugBuffer, 'danh-muc-thuoc.xlsx');
-    expect(drugRes.status).toBe(200);
-    expect(drugRes.body.rowsInserted).toBe(1);
+    expect(drugRes.status).toBe(202);
+    expect(drugRes.body.status).toBe('processing');
+    const drugDone = await waitForImport('drug', drugRes.body.importId, token);
+    expect(drugDone.status).toBe('success');
+    expect(drugDone.rowsInserted).toBe(1);
 
     const serviceBuffer = await buildServiceCatalogWorkbook();
     const serviceRes = await request(app)
       .post('/api/catalogs/service/import')
       .set('Authorization', `Bearer ${token}`)
       .attach('file', serviceBuffer, 'danh-muc-dvkt.xlsx');
-    expect(serviceRes.status).toBe(200);
-    expect(serviceRes.body.rowsInserted).toBe(1);
+    expect(serviceRes.status).toBe(202);
+    const serviceDone = await waitForImport('service', serviceRes.body.importId, token);
+    expect(serviceDone.status).toBe('success');
+    expect(serviceDone.rowsInserted).toBe(1);
   });
 
   test('re-importing the same drug catalog file upserts instead of duplicating', async () => {
@@ -131,9 +150,11 @@ describe('End-to-end reconciliation flow', () => {
       .post('/api/catalogs/drug/import')
       .set('Authorization', `Bearer ${token}`)
       .attach('file', drugBuffer, 'danh-muc-thuoc.xlsx');
-    expect(reimportRes.status).toBe(200);
-    expect(reimportRes.body.rowsInserted).toBe(0);
-    expect(reimportRes.body.rowsUpdated).toBe(1);
+    expect(reimportRes.status).toBe(202);
+    const reimportDone = await waitForImport('drug', reimportRes.body.importId, token);
+    expect(reimportDone.status).toBe('success');
+    expect(reimportDone.rowsInserted).toBe(0);
+    expect(reimportDone.rowsUpdated).toBe(1);
 
     const listRes = await request(app)
       .get('/api/catalogs/drug?q=T001')

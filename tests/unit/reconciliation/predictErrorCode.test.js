@@ -4,6 +4,7 @@ const {
   predictBacSiErrorCode,
   predictNgaySinhErrorCode,
   predictNgayGiuongErrorCode,
+  predictKhamTrungLapErrorCode,
 } = require('../../../reconciliation/predictErrorCode');
 const { KET_LUAN } = require('../../../config/constants');
 
@@ -176,5 +177,32 @@ describe('predictNgayGiuongErrorCode', () => {
     const rows = [errorCodeRow({ maLoi: 'L001', apDungTruong: 'Đơn giá' })];
     const index = buildErrorCodeIndex(rows);
     expect(predictNgayGiuongErrorCode(index)).toEqual([]);
+  });
+});
+
+describe('predictKhamTrungLapErrorCode', () => {
+  test('untagged mã lỗi whose tên mentions "dịch vụ khám bệnh nhiều hơn" matches automatically', () => {
+    const rows = [
+      errorCodeRow({
+        maLoi: 'ML007',
+        tenLoi: 'Hồ sơ sử dụng một dịch vụ khám bệnh nhiều hơn 1 lần',
+        apDungTruong: '',
+      }),
+      errorCodeRow({ maLoi: 'L999', tenLoi: 'Chung chung', apDungTruong: '' }),
+    ];
+    const index = buildErrorCodeIndex(rows);
+    expect(predictKhamTrungLapErrorCode(index).map((w) => w.maLoi)).toEqual(['ML007']);
+  });
+
+  test('mã lỗi explicitly tagged apDungTruong = KHAM_TRUNG_LAP also matches', () => {
+    const rows = [errorCodeRow({ maLoi: 'L777', tenLoi: 'Sai lệch khác', apDungTruong: 'KHAM_TRUNG_LAP' })];
+    const index = buildErrorCodeIndex(rows);
+    expect(predictKhamTrungLapErrorCode(index).map((w) => w.maLoi)).toEqual(['L777']);
+  });
+
+  test('no mã lỗi related -> empty result', () => {
+    const rows = [errorCodeRow({ maLoi: 'L001', apDungTruong: 'Đơn giá' })];
+    const index = buildErrorCodeIndex(rows);
+    expect(predictKhamTrungLapErrorCode(index)).toEqual([]);
   });
 });

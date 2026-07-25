@@ -1,9 +1,11 @@
 const { reconcileRow } = require('./reconcileRow');
 const { checkNgayGiuongBatch } = require('./checkNgayGiuong');
+const { checkKhamBenhBatch, isKhamBenhRow } = require('./checkKhamBenh');
 const { KET_LUAN } = require('../config/constants');
 
 function reconcileBatch(errorRows, catalogIndex) {
   const giuongNotes = checkNgayGiuongBatch(errorRows);
+  const khamNotes = checkKhamBenhBatch(errorRows);
 
   return errorRows.map((errorRow) => {
     try {
@@ -15,6 +17,16 @@ function reconcileBatch(errorRows, catalogIndex) {
       result.ngayGiuongMismatch = Boolean(giuongNote);
       if (giuongNote) {
         result.ghiChu = [...result.ghiChu, giuongNote];
+      }
+
+      // Same idea: only the duplicated khám bệnh rows themselves carry the flag.
+      const khamNote =
+        errorRow.maLK && errorRow.maChiPhi && isKhamBenhRow(errorRow)
+          ? khamNotes.get(`${errorRow.maLK}|${errorRow.maChiPhi}`)
+          : undefined;
+      result.khamTrungLapMismatch = Boolean(khamNote);
+      if (khamNote) {
+        result.ghiChu = [...result.ghiChu, khamNote];
       }
 
       return { errorRow, result, error: null };

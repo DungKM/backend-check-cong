@@ -60,4 +60,17 @@ describe('reconcileBatch', () => {
     expect(results[0].result.ghiChu.some((g) => g.includes('5') && g.includes('2'))).toBe(true);
     expect(results[1].result.ngayGiuongMismatch).toBe(false);
   });
+
+  test('cùng mã dịch vụ khám bệnh dùng 2 lần flags only those rows, not unrelated rows in the same hồ sơ', () => {
+    const catalogIndex = { drugByCode: new Map(), serviceByCode: new Map() };
+    const rows = [
+      { maLK: 'LK001', maChiPhi: '10.19', tenChiPhi: 'Khám Ngoại tổng hợp', loaiChiPhi: 'Khám bệnh', ngayYLenh: d('2024-01-01'), lyDoTuChoi: '' },
+      { maLK: 'LK001', maChiPhi: '10.19', tenChiPhi: 'Khám Ngoại tổng hợp', loaiChiPhi: 'Khám bệnh', ngayYLenh: d('2024-01-02'), lyDoTuChoi: '' },
+      { maLK: 'LK001', maChiPhi: 'THUOC1', loaiChiPhi: 'Thuốc', ngayYLenh: d('2024-01-01'), lyDoTuChoi: '' },
+    ];
+    const results = reconcileBatch(rows, catalogIndex);
+    expect(results[0].result.khamTrungLapMismatch).toBe(true);
+    expect(results[1].result.khamTrungLapMismatch).toBe(true);
+    expect(results[2].result.khamTrungLapMismatch).toBe(false);
+  });
 });

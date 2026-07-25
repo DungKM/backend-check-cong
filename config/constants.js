@@ -41,6 +41,7 @@ const MA_LOI_AP_DUNG_TRUONG = {
   MA_BAC_SI: 'MA_BAC_SI',
   NGAY_SINH: 'NGAY_SINH',
   NGAY_GIUONG: 'NGAY_GIUONG',
+  KHAM_TRUNG_LAP: 'KHAM_TRUNG_LAP',
 };
 
 // Keyword groups are matched against normalized (accent-stripped, lowercased) text.
@@ -69,6 +70,10 @@ const NGAY_SINH_KEYWORDS = ['ngay sinh'];
 // Same auto-detect role as BAC_SI_KEYWORDS above, for "thanh toán ngày giường sai quy
 // định" mã lỗi rows.
 const NGAY_GIUONG_KEYWORDS = ['ngay giuong'];
+
+// Same auto-detect role as BAC_SI_KEYWORDS above, for "hồ sơ sử dụng một dịch vụ khám
+// bệnh nhiều hơn 1 lần" mã lỗi rows.
+const KHAM_TRUNG_LAP_KEYWORDS = ['dich vu kham benh nhieu hon'];
 
 const REJECT_REASON_KEYWORDS = {
   [REJECT_REASON_CATEGORY.VUOT_DINH_MUC]: ['vuot tran', 'vuot dinh muc', 'qua dinh muc'],
@@ -104,4 +109,5 @@ module.exports = {
   BAC_SI_KEYWORDS,
   NGAY_SINH_KEYWORDS,
   NGAY_GIUONG_KEYWORDS,
+  KHAM_TRUNG_LAP_KEYWORDS,
 };
