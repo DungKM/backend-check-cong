@@ -164,4 +164,21 @@ describe('reconcileRow', () => {
     expect(result.ghiChu).toEqual([]);
     expect(result.nhomDvktMismatch).toBe(false);
   });
+
+  test('trái tuyến nhưng tỷ lệ thanh toán vẫn 100% -> ghi chú flagged independently of chi phí ketLuan', () => {
+    const catalogIndex = buildCatalogIndex({ drugs: [baseDrug] });
+    const errorRow = { ...baseErrorRow, maDkbd: '36907', maCSKCB: '01007', giayChuyenTuyen: '', tyLeTtBh: 100 };
+    const result = reconcileRow(errorRow, catalogIndex);
+    expect(result.ketLuan).toBe('KHONG_LIEN_QUAN_DANH_MUC');
+    expect(result.ghiChu.some((g) => g.includes('trái tuyến'))).toBe(true);
+    expect(result.mucHuongMismatch).toBe(true);
+  });
+
+  test('đúng tuyến (mã DKBD khớp mã CSKCB) -> no extra ghi chú', () => {
+    const catalogIndex = buildCatalogIndex({ drugs: [baseDrug] });
+    const errorRow = { ...baseErrorRow, maDkbd: '01007', maCSKCB: '01007', tyLeTtBh: 100 };
+    const result = reconcileRow(errorRow, catalogIndex);
+    expect(result.ghiChu).toEqual([]);
+    expect(result.mucHuongMismatch).toBe(false);
+  });
 });

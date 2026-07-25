@@ -7,6 +7,7 @@ const {
   NGAY_GIUONG_KEYWORDS,
   KHAM_TRUNG_LAP_KEYWORDS,
   NHOM_DVKT_KEYWORDS,
+  MUC_HUONG_KEYWORDS,
 } = require('../config/constants');
 const { isDateInRange } = require('../utils/dateUtils');
 const { normalizeText } = require('../utils/normalizeText');
@@ -141,6 +142,10 @@ function predictNhomDvktErrorCode(errorCodeIndex, ngayYLenh) {
   return predictByFieldOrKeyword(errorCodeIndex, ngayYLenh, MA_LOI_AP_DUNG_TRUONG.NHOM_DVKT, NHOM_DVKT_KEYWORDS);
 }
 
+function predictMucHuongErrorCode(errorCodeIndex, ngayYLenh) {
+  return predictByFieldOrKeyword(errorCodeIndex, ngayYLenh, MA_LOI_AP_DUNG_TRUONG.MUC_HUONG, MUC_HUONG_KEYWORDS);
+}
+
 module.exports = {
   buildErrorCodeIndex,
   predictErrorCode,
@@ -149,4 +154,5 @@ module.exports = {
   predictNgayGiuongErrorCode,
   predictKhamTrungLapErrorCode,
   predictNhomDvktErrorCode,
+  predictMucHuongErrorCode,
 };

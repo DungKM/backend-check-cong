@@ -41,6 +41,14 @@ function findArrayByKey(node, key, depth = 0) {
   return null;
 }
 
+// MA_THE_BHYT can carry multiple ";"-separated card numbers when the patient's
+// card was renewed mid-treatment (see real sample) — only the first is kept;
+// picking the card valid on a specific service date would need per-line date
+// matching against GT_THE_TU/GT_THE_DEN, not done here.
+function firstSegment(value) {
+  return String(value || '').split(';')[0].trim();
+}
+
 function parseXml1Header(decodedXml) {
   const doc = parser.parse(decodedXml);
   const root = doc.TONG_HOP || {};
@@ -57,6 +65,10 @@ function parseXml1Header(decodedXml) {
     ngayVaoNoiTru: bhytDateToDate(pick(root, XML1_ALIASES.ngayVaoNoiTru)),
     ketQuaDieuTri: pick(root, XML1_ALIASES.ketQuaDieuTri),
     maLoaiRaVien: pick(root, XML1_ALIASES.maLoaiRaVien),
+    maThe: firstSegment(pick(root, XML1_ALIASES.maThe)),
+    maDkbd: firstSegment(pick(root, XML1_ALIASES.maDkbd)),
+    giayChuyenTuyen: pick(root, XML1_ALIASES.giayChuyenTuyen),
+    maLoaiKCB: pick(root, XML1_ALIASES.maLoaiKCB),
   };
 }
 
@@ -91,10 +103,16 @@ function buildCostRow(type, detail, header, warnings) {
     ngayVaoNoiTru: header.ngayVaoNoiTru || null,
     ketQuaDieuTri: header.ketQuaDieuTri || '',
     maLoaiRaVien: header.maLoaiRaVien || '',
+    maThe: header.maThe || '',
+    maDkbd: header.maDkbd || '',
+    giayChuyenTuyen: header.giayChuyenTuyen || '',
+    loaiKCB: header.maLoaiKCB || '',
     maKhoa: get('maKhoa'),
     maBacSi: get('maBacSi'),
     maGiuong: get('maGiuong'),
     maNhom: get('maNhom'),
+    mucHuong: toNumber(get('mucHuong')),
+    tyLeTtBh: toNumber(get('tyLeTtBh')),
     loaiChiPhi: config.loaiChiPhi,
     maChiPhi,
     tenChiPhi: get('tenChiPhi'),

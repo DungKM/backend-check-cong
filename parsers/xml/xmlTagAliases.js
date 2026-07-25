@@ -20,6 +20,15 @@ const XML1_ALIASES = {
   ngayVaoNoiTru: ['NGAY_VAO_NOI_TRU'],
   ketQuaDieuTri: ['KET_QUA_DTRI'],
   maLoaiRaVien: ['MA_LOAI_RV'],
+  // Dùng để xác định trái tuyến (checkMucHuong.js): MA_THE_BHYT chứa mã mức hưởng
+  // (ký tự thứ 3), MA_DKBD là nơi đăng ký KCB ban đầu để so với MA_CSKCB (nơi khám
+  // thực tế), GIAY_CHUYEN_TUYEN không rỗng nghĩa là có giấy chuyển tuyến hợp lệ,
+  // MA_LOAI_KCB populates ClaimItem.loaiKCB (trước đây khai báo trên schema nhưng
+  // chưa từng được parse).
+  maThe: ['MA_THE_BHYT'],
+  maDkbd: ['MA_DKBD'],
+  giayChuyenTuyen: ['GIAY_CHUYEN_TUYEN'],
+  maLoaiKCB: ['MA_LOAI_KCB'],
 };
 
 const XML2_ALIASES = {
@@ -36,6 +45,10 @@ const XML2_ALIASES = {
   ngayYLenh: ['NGAY_YL'],
   maKhoa: ['MA_KHOA'],
   maBacSi: ['MA_BAC_SI'],
+  // Mức hưởng (%) và tỷ lệ thanh toán BHYT áp dụng cho dòng chi phí — dùng để đối
+  // chiếu trái tuyến, xem checkMucHuong.js.
+  mucHuong: ['MUC_HUONG'],
+  tyLeTtBh: ['TYLE_TT_BH'],
 };
 
 // CHITIEU_CHITIET_DVKT_VTYT (XML3) mixes two line kinds: dịch vụ kỹ thuật (MA_DICH_VU)
@@ -61,6 +74,10 @@ const XML3_ALIASES = {
   // Mã nhóm chi phí (theo QĐ 5937) mà cơ sở khai báo khi thanh toán DVKT — đối chiếu
   // với MANHOM_5937 chuẩn theo mã DVKT trong ServiceGroupCatalog, xem checkNhomDvkt.js.
   maNhom: ['MA_NHOM'],
+  // Mức hưởng (%) và tỷ lệ thanh toán BHYT áp dụng cho dòng chi phí — dùng để đối
+  // chiếu trái tuyến, xem checkMucHuong.js.
+  mucHuong: ['MUC_HUONG'],
+  tyLeTtBh: ['TYLE_TT_BH'],
 };
 
 // XML types that carry cost/claim-line data consumable by the reconciliation engine.

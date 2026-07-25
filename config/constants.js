@@ -43,6 +43,19 @@ const MA_LOI_AP_DUNG_TRUONG = {
   NGAY_GIUONG: 'NGAY_GIUONG',
   KHAM_TRUNG_LAP: 'KHAM_TRUNG_LAP',
   NHOM_DVKT: 'NHOM_DVKT',
+  MUC_HUONG: 'MUC_HUONG',
+};
+
+// Mã mức hưởng ghi trên thẻ BHYT (ký tự thứ 3 của số thẻ, VD "TC3363621769845"
+// -> "3") -> % mức hưởng chuẩn. Bảng này ổn định từ khi đổi định dạng thẻ BHYT
+// 15 ký tự (không đổi qua các lần sửa Luật BHYT) — dùng để đối chiếu tự-nhất-quán
+// giữa MUC_HUONG khai trên XML và mã thẻ, xem checkMucHuong.js.
+const MUC_HUONG_THE_MAP = {
+  1: 100,
+  2: 100,
+  3: 95,
+  4: 80,
+  5: 100,
 };
 
 // Keyword groups are matched against normalized (accent-stripped, lowercased) text.
@@ -80,6 +93,10 @@ const KHAM_TRUNG_LAP_KEYWORDS = ['dich vu kham benh nhieu hon'];
 // được thực hiện" (ML004) mã lỗi rows.
 const NHOM_DVKT_KEYWORDS = ['sai ma nhom', 'ma nhom dvkt', 'nhom dvkt'];
 
+// Same auto-detect role as BAC_SI_KEYWORDS above, for "Vào viện trái tuyến, Bệnh
+// viện đề nghị sai Mức hưởng" (ML015) mã lỗi rows.
+const MUC_HUONG_KEYWORDS = ['sai muc huong', 'trai tuyen'];
+
 const REJECT_REASON_KEYWORDS = {
   [REJECT_REASON_CATEGORY.VUOT_DINH_MUC]: ['vuot tran', 'vuot dinh muc', 'qua dinh muc'],
   [REJECT_REASON_CATEGORY.SAI_QUY_TAC_THANH_TOAN]: [
@@ -109,6 +126,7 @@ module.exports = {
   MA_LOI_MUC_DO,
   CHI_TIET_LECH_TRUONG,
   MA_LOI_AP_DUNG_TRUONG,
+  MUC_HUONG_THE_MAP,
   CHI_PHI_KEYWORDS,
   REJECT_REASON_KEYWORDS,
   BAC_SI_KEYWORDS,
@@ -116,4 +134,5 @@ module.exports = {
   NGAY_GIUONG_KEYWORDS,
   KHAM_TRUNG_LAP_KEYWORDS,
   NHOM_DVKT_KEYWORDS,
+  MUC_HUONG_KEYWORDS,
 };
