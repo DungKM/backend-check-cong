@@ -9,6 +9,8 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const analyzeRoutes = require('./routes/analyzeRoutes');
 const batchRoutes = require('./routes/batchRoutes');
 const catalogRoutes = require('./routes/catalogRoutes');
+const userRoutes = require('./routes/userRoutes');
+const statsRoutes = require('./routes/statsRoutes');
 
 function createApp() {
   const app = express();
@@ -30,6 +32,8 @@ function createApp() {
   app.use('/api/analyze', analyzeRoutes);
   app.use('/api/batches', batchRoutes);
   app.use('/api/catalogs', catalogRoutes);
+  app.use('/api/users', userRoutes);
+  app.use('/api/stats', statsRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

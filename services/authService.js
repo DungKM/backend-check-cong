@@ -20,6 +20,10 @@ async function login(username, password) {
     throw new AuthError('Sai tên đăng nhập hoặc mật khẩu');
   }
 
+  if (user.active === false) {
+    throw new AuthError('Tài khoản đã bị vô hiệu hoá');
+  }
+
   const token = jwt.sign(
     { sub: user._id.toString(), username: user.username, role: user.role },
     process.env.JWT_SECRET,

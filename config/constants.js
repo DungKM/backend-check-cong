@@ -1,3 +1,10 @@
+// Admin: toàn quyền (quản lý tài khoản, danh mục, cài đặt). Nhân viên (staff): chỉ tạo
+// đối chiếu mới và xem kết quả/dashboard — không được vào danh mục hay cài đặt.
+const USER_ROLES = {
+  ADMIN: 'admin',
+  STAFF: 'staff',
+};
+
 const KET_LUAN = {
   LECH_DU_LIEU: 'LECH_DU_LIEU',
   KHONG_TIM_THAY: 'KHONG_TIM_THAY',
@@ -128,6 +135,7 @@ const REJECT_REASON_KEYWORDS = {
 };
 
 module.exports = {
+  USER_ROLES,
   KET_LUAN,
   LOAI_CHI_PHI,
   REJECT_REASON_CATEGORY,
