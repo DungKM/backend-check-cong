@@ -2,73 +2,46 @@ const Batch = require('../models/Batch');
 const AnalysisResult = require('../models/AnalysisResult');
 const { KET_LUAN } = require('../config/constants');
 
-// Global (cross-batch) counterpart to reconciliationService.getSummary — same
-// aggregation shapes, just without the { batchId } $match, plus batch-level and
-// top-mã-lỗi rollups for the "Tổng quan" landing page.
+// Lightweight cross-batch rollup for the "Tổng quan" landing page — just the 4
+// headline numbers (tổng đợt, tổng dòng, dòng cảnh báo, tiền cảnh báo) plus a
+// short recent-batches list. Deliberately skips the heavier per-month/per-mã-lỗi
+// breakdowns (see reconciliationService.getSummary for the per-batch version
+// that still has those) to keep this endpoint cheap since it loads on every
+// login.
 async function getOverview() {
-  const [totalBatches, batchesByStatusRaw, totals, byKetLuan, byMonth, topMaLoiRaw, recentBatches] =
-    await Promise.all([
-      Batch.countDocuments(),
-      Batch.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
-      AnalysisResult.aggregate([
-        {
-          $group: {
-            _id: null,
-            count: { $sum: 1 },
-            soDongCanhBao: { $sum: { $cond: [{ $eq: ['$ketLuan', KET_LUAN.KHONG_LIEN_QUAN_DANH_MUC] }, 0, 1] } },
-          },
+  const [totalBatches, totals, recentBatches] = await Promise.all([
+    Batch.countDocuments(),
+    AnalysisResult.aggregate([
+      {
+        $lookup: {
+          from: 'claimitems',
+          localField: 'errorRowId',
+          foreignField: '_id',
+          as: 'errorRow',
         },
-      ]),
-      AnalysisResult.aggregate([{ $group: { _id: '$ketLuan', count: { $sum: 1 } } }]),
-      AnalysisResult.aggregate([
-        {
-          $lookup: {
-            from: 'claimitems',
-            localField: 'errorRowId',
-            foreignField: '_id',
-            as: 'errorRow',
-          },
-        },
-        { $unwind: '$errorRow' },
-        {
-          $group: {
-            _id: { $dateToString: { format: '%Y-%m', date: '$errorRow.ngayYLenh' } },
-            count: { $sum: 1 },
-            tongTienCanhBao: {
-              $sum: {
-                $cond: [{ $eq: ['$ketLuan', KET_LUAN.KHONG_LIEN_QUAN_DANH_MUC] }, 0, { $ifNull: ['$errorRow.deNghi', 0] }],
-              },
+      },
+      { $unwind: '$errorRow' },
+      {
+        $group: {
+          _id: null,
+          count: { $sum: 1 },
+          soDongCanhBao: { $sum: { $cond: [{ $eq: ['$ketLuan', KET_LUAN.KHONG_LIEN_QUAN_DANH_MUC] }, 0, 1] } },
+          tongTienCanhBao: {
+            $sum: {
+              $cond: [{ $eq: ['$ketLuan', KET_LUAN.KHONG_LIEN_QUAN_DANH_MUC] }, 0, { $ifNull: ['$errorRow.deNghi', 0] }],
             },
           },
         },
-        { $sort: { _id: 1 } },
-      ]),
-      AnalysisResult.aggregate([
-        { $unwind: '$duDoanMaLoi' },
-        {
-          $group: {
-            _id: '$duDoanMaLoi.maLoi',
-            tenLoi: { $first: '$duDoanMaLoi.tenLoi' },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { count: -1 } },
-        { $limit: 5 },
-      ]),
-      Batch.find().sort({ createdAt: -1 }).limit(5).select('batchId status createdAt analyzedAt rowCounts').lean(),
-    ]);
-
-  const batchesByStatus = {};
-  for (const row of batchesByStatusRaw) batchesByStatus[row._id] = row.count;
+      },
+    ]),
+    Batch.find().sort({ createdAt: -1 }).limit(5).select('batchId status createdAt analyzedAt rowCounts').lean(),
+  ]);
 
   return {
     totalBatches,
-    batchesByStatus,
     tongSoDong: totals[0]?.count || 0,
     soDongCanhBao: totals[0]?.soDongCanhBao || 0,
-    theoKetLuan: byKetLuan.map((r) => ({ ketLuan: r._id, count: r.count })),
-    theoThang: byMonth.map((r) => ({ thang: r._id || '(không rõ)', count: r.count, tongTienCanhBao: r.tongTienCanhBao })),
-    topMaLoi: topMaLoiRaw.map((r) => ({ maLoi: r._id, tenLoi: r.tenLoi, count: r.count })),
+    tongTienCanhBao: totals[0]?.tongTienCanhBao || 0,
     recentBatches,
   };
 }
