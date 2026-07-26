@@ -1,3 +1,5 @@
+const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -34,6 +36,16 @@ function createApp() {
   app.use('/api/catalogs', catalogRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/stats', statsRoutes);
+
+  // Serve FE build nếu đã build (không ảnh hưởng dev local chạy Vite riêng).
+  const frontendDistPath = path.join(__dirname, '../frontend-check-cong/dist');
+  if (fs.existsSync(frontendDistPath)) {
+    app.use(express.static(frontendDistPath));
+    // Fallback cho React Router (SPA), trừ các route /api để giữ nguyên 404 JSON.
+    app.get(/^\/(?!api).*/, (req, res) => {
+      res.sendFile(path.join(frontendDistPath, 'index.html'));
+    });
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);
