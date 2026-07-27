@@ -78,8 +78,13 @@ function buildCostRow(type, detail, header, warnings) {
   const get = (field) => pick(detail, config.aliases[field] || []);
 
   const maLK = get('maLK') || header.maLK || '';
-  const maDichVu = get('maChiPhi');
-  const maVatTu = !maDichVu ? get('maVatTu') : '';
+  // Real CHI_TIET_DVKT lines can carry MA_DICH_VU alongside MA_VAT_TU on a VTYT
+  // line, as a "used during this service" reference rather than a second cost
+  // item (TEN_DICH_VU/its own price are blank on those lines) — so MA_VAT_TU
+  // must win whenever present, or the line's vật tư mã silently disappears and
+  // never gets checked against VatTuCatalogMaster.
+  const maVatTu = get('maVatTu');
+  const maDichVu = maVatTu ? '' : get('maChiPhi');
   const isVatTu = Boolean(maVatTu);
   const maChiPhi = isVatTu ? maVatTu : maDichVu;
   if (!maChiPhi) {
