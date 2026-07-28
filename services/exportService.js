@@ -1,5 +1,6 @@
 const ExcelJS = require('exceljs');
 const { getResults } = require('./reconciliationService');
+const { getClaimFileXmlRows } = require('./batchService');
 
 function formatDate(date) {
   if (!date) return '';
@@ -7,11 +8,9 @@ function formatDate(date) {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('vi-VN');
 }
 
-async function exportAnalysisToExcel(batchId) {
-  const results = await getResults(batchId);
-
+function buildResultsWorkbook(results, sheetName) {
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Kết quả đối chiếu');
+  const sheet = workbook.addWorksheet(sheetName);
 
   sheet.columns = [
     { header: 'STT', key: 'stt', width: 6 },
@@ -59,7 +58,19 @@ async function exportAnalysisToExcel(batchId) {
     });
   }
 
+  return workbook;
+}
+
+async function exportAnalysisToExcel(batchId) {
+  const results = await getResults(batchId);
+  const workbook = buildResultsWorkbook(results, 'Kết quả đối chiếu');
   return workbook.xlsx.writeBuffer();
 }
 
-module.exports = { exportAnalysisToExcel };
+async function exportClaimFileErrorsToExcel(batchId, fileName) {
+  const results = await getClaimFileXmlRows(batchId, fileName, 'ERRORS');
+  const workbook = buildResultsWorkbook(results, 'Danh sách lỗi');
+  return workbook.xlsx.writeBuffer();
+}
+
+module.exports = { exportAnalysisToExcel, exportClaimFileErrorsToExcel };

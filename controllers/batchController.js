@@ -1,5 +1,6 @@
 const { asyncHandler } = require('../utils/asyncHandler');
 const batchService = require('../services/batchService');
+const exportService = require('../services/exportService');
 
 const listBatches = asyncHandler(async (req, res) => {
   const { page, pageSize } = req.query;
@@ -23,4 +24,13 @@ const getClaimFileXmlRows = asyncHandler(async (req, res) => {
   res.json({ rows });
 });
 
-module.exports = { listBatches, getClaimFiles, getClaimFileXmlTypes, getClaimFileXmlRows };
+const exportClaimFileErrors = asyncHandler(async (req, res) => {
+  const { batchId, fileName } = req.params;
+  const buffer = await exportService.exportClaimFileErrorsToExcel(batchId, fileName);
+  const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="danh-sach-loi-${safeFileName}.xlsx"`);
+  res.send(Buffer.from(buffer));
+});
+
+module.exports = { listBatches, getClaimFiles, getClaimFileXmlTypes, getClaimFileXmlRows, exportClaimFileErrors };

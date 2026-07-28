@@ -7,5 +7,6 @@ router.get('/', batchController.listBatches);
 router.get('/:batchId/claim-files', batchController.getClaimFiles);
 router.get('/:batchId/claim-files/:fileName/xml-types', batchController.getClaimFileXmlTypes);
 router.get('/:batchId/claim-files/:fileName/xml/:xmlType', batchController.getClaimFileXmlRows);
+router.get('/:batchId/claim-files/:fileName/errors/export', batchController.exportClaimFileErrors);
 
 module.exports = router;
