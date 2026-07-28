@@ -31,6 +31,9 @@ const XML1_ALIASES = {
   maDkbd: ['MA_DKBD'],
   giayChuyenTuyen: ['GIAY_CHUYEN_TUYEN'],
   maLoaiKCB: ['MA_LOAI_KCB'],
+  // Mã đối tượng KCB (BHYT/thu phí/...) — chỉ dùng để hiển thị/xuất Excel, không tham
+  // gia đối chiếu.
+  maDoiTuongKCB: ['MA_DOITUONG_KCB'],
 };
 
 const XML2_ALIASES = {

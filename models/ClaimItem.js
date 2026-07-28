@@ -16,6 +16,7 @@ const claimItemSchema = new mongoose.Schema({
   ketQuaDieuTri: { type: String, trim: true },
   maLoaiRaVien: { type: String, trim: true },
   loaiKCB: { type: String, trim: true },
+  maDoiTuongKCB: { type: String, trim: true },
   maThe: { type: String, trim: true },
   maDkbd: { type: String, trim: true },
   giayChuyenTuyen: { type: String, trim: true },

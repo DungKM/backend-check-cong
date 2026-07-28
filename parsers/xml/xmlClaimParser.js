@@ -74,6 +74,7 @@ function parseXml1Header(doc) {
     maDkbd: firstSegment(pick(root, XML1_ALIASES.maDkbd)),
     giayChuyenTuyen: pick(root, XML1_ALIASES.giayChuyenTuyen),
     maLoaiKCB: pick(root, XML1_ALIASES.maLoaiKCB),
+    maDoiTuongKCB: pick(root, XML1_ALIASES.maDoiTuongKCB),
   };
 }
 
@@ -114,6 +115,7 @@ function buildCostRow(type, detail, header, warnings) {
     maDkbd: header.maDkbd || '',
     giayChuyenTuyen: header.giayChuyenTuyen || '',
     loaiKCB: header.maLoaiKCB || '',
+    maDoiTuongKCB: header.maDoiTuongKCB || '',
     maKhoa: get('maKhoa'),
     maBacSi: get('maBacSi'),
     maGiuong: get('maGiuong'),
