@@ -1,10 +1,15 @@
 const { XMLParser } = require('fast-xml-parser');
 const AdmZip = require('adm-zip');
-const { XML1_ALIASES, COST_XML_TYPES } = require('./xmlTagAliases');
+const { XML1_ALIASES, COST_XML_TYPES, XML_DETAIL_CONFIG } = require('./xmlTagAliases');
 const { bhytDateToDate } = require('../../utils/dateUtils');
 const { LOAI_CHI_PHI } = require('../../config/constants');
 
-const DETAIL_ARRAY_TAGS = ['HOSO', 'FILEHOSO', ...Object.values(COST_XML_TYPES).map((c) => c.detailTag)];
+const DETAIL_ARRAY_TAGS = [
+  'HOSO',
+  'FILEHOSO',
+  ...Object.values(COST_XML_TYPES).map((c) => c.detailTag),
+  ...Object.values(XML_DETAIL_CONFIG).map((c) => c.detailTag).filter(Boolean),
+];
 
 const parser = new XMLParser({
   ignoreAttributes: true,
@@ -50,8 +55,7 @@ function firstSegment(value) {
   return String(value || '').split(';')[0].trim();
 }
 
-function parseXml1Header(decodedXml) {
-  const doc = parser.parse(decodedXml);
+function parseXml1Header(doc) {
   const root = doc.TONG_HOP || {};
   return {
     maLK: pick(root, XML1_ALIASES.maLK),
@@ -127,16 +131,27 @@ function buildCostRow(type, detail, header, warnings) {
     donGia: toNumber(get('donGia')),
     deNghi: toNumber(get('deNghi')),
     ngayYLenh: bhytDateToDate(get('ngayYLenh')),
+    sttXML: get('stt'),
   };
 }
 
-function parseCostXml(type, decodedXml, header, warnings) {
+function parseCostXml(type, doc, header, warnings) {
   const config = COST_XML_TYPES[type];
-  const doc = parser.parse(decodedXml);
   const details = findArrayByKey(doc, config.detailTag) || [];
   return details
     .map((detail) => buildCostRow(type, detail, header, warnings))
     .filter((row) => row !== null);
+}
+
+// Pulls raw (un-normalized) records out of an already-parsed XML doc for the per-file
+// XML1..XML13 detail viewer (see XML_DETAIL_CONFIG). Returns null for XML types with no
+// known extraction config (not yet confirmed against a real sample).
+function extractXmlDetailRecords(type, doc) {
+  const config = XML_DETAIL_CONFIG[type];
+  if (!config) return null;
+  if (config.detailTag) return findArrayByKey(doc, config.detailTag) || [];
+  const root = doc[config.rootTag];
+  return root ? [root] : [];
 }
 
 function parseGiamDinhHsXml(xmlText, warnings) {
@@ -144,12 +159,14 @@ function parseGiamDinhHsXml(xmlText, warnings) {
   const root = doc.GIAMDINHHS;
   if (!root) {
     warnings.push('Không tìm thấy thẻ gốc GIAMDINHHS trong file XML');
-    return [];
+    return { rows: [], xmlDetails: [], hosoSummaries: [] };
   }
 
   const thongTinHoSo = root.THONGTINHOSO || {};
   const hosoList = (thongTinHoSo.DANHSACHHOSO && thongTinHoSo.DANHSACHHOSO.HOSO) || [];
   const rows = [];
+  const xmlDetails = [];
+  const hosoSummaries = [];
 
   for (const hoso of hosoList) {
     const fileHosoList = hoso.FILEHOSO || [];
@@ -169,25 +186,42 @@ function parseGiamDinhHsXml(xmlText, warnings) {
         continue;
       }
 
+      const fileHosoDoc = parser.parse(decoded);
+
       if (loaiHoSo === 'XML1') {
-        header = parseXml1Header(decoded);
+        header = parseXml1Header(fileHosoDoc);
       } else if (COST_XML_TYPES[loaiHoSo]) {
-        costFiles.push({ type: loaiHoSo, decoded });
+        costFiles.push({ type: loaiHoSo, doc: fileHosoDoc });
       }
-      // XML4/5/7/8/... carry no cost fields — intentionally not parsed here.
+
+      const records = extractXmlDetailRecords(loaiHoSo, fileHosoDoc);
+      if (records) {
+        for (const record of records) {
+          xmlDetails.push({
+            xmlType: loaiHoSo,
+            maLK: pick(record, ['MA_LK']) || header.maLK || '',
+            sttXML: pick(record, ['STT']),
+            data: record,
+          });
+        }
+      }
     }
 
-    for (const { type, decoded } of costFiles) {
-      rows.push(...parseCostXml(type, decoded, header, warnings));
+    for (const { type, doc: fileHosoDoc } of costFiles) {
+      rows.push(...parseCostXml(type, fileHosoDoc, header, warnings));
     }
+
+    hosoSummaries.push({ maLK: header.maLK || '', hoTen: header.hoTen || '', ok: Boolean(header.maLK) });
   }
 
-  return rows;
+  return { rows, xmlDetails, hosoSummaries };
 }
 
 async function parseClaimXmlBuffer(buffer, fileName) {
   const warnings = [];
   const rows = [];
+  const xmlDetails = [];
+  const hosoSummaries = [];
   const isZip = /\.zip$/i.test(fileName || '') || (buffer.length > 2 && buffer[0] === 0x50 && buffer[1] === 0x4b);
 
   const xmlTexts = [];
@@ -206,13 +240,16 @@ async function parseClaimXmlBuffer(buffer, fileName) {
 
   for (const xmlText of xmlTexts) {
     try {
-      rows.push(...parseGiamDinhHsXml(xmlText, warnings));
+      const parsed = parseGiamDinhHsXml(xmlText, warnings);
+      rows.push(...parsed.rows);
+      xmlDetails.push(...parsed.xmlDetails);
+      hosoSummaries.push(...parsed.hosoSummaries);
     } catch (err) {
       warnings.push(`Lỗi phân tích XML (${fileName}): ${err.message}`);
     }
   }
 
-  return { rows, warnings };
+  return { rows, warnings, xmlDetails, hosoSummaries };
 }
 
 module.exports = { parseClaimXmlBuffer };

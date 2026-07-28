@@ -1,7 +1,10 @@
 const crypto = require('crypto');
 const Batch = require('../models/Batch');
 const ClaimItem = require('../models/ClaimItem');
+const ClaimXmlDetail = require('../models/ClaimXmlDetail');
 const { parseClaimXmlBuffer } = require('../parsers/xml/xmlClaimParser');
+const reconciliationService = require('./reconciliationService');
+const { logger } = require('../utils/logger');
 
 async function getOrCreateBatch(batchId, userId) {
   if (batchId) {
@@ -16,25 +19,75 @@ async function ingestClaimXml({ batchId, userId, files }) {
   const batch = await getOrCreateBatch(batchId, userId);
 
   const allRows = [];
+  const allXmlDetails = [];
   const allWarnings = [];
   const fileNames = [];
+  const claimFiles = [];
 
   for (const file of files) {
     fileNames.push(file.originalname);
-    const { rows, warnings } = await parseClaimXmlBuffer(file.buffer, file.originalname);
-    allRows.push(...rows);
+
+    let parsed;
+    try {
+      parsed = await parseClaimXmlBuffer(file.buffer, file.originalname);
+    } catch (err) {
+      // Isolate the failure to this one file — the rest of a multi-file upload still
+      // gets processed instead of failing the whole batch.
+      allWarnings.push(`[${file.originalname}] Lỗi phân tích XML: ${err.message}`);
+      claimFiles.push({
+        fileName: file.originalname,
+        status: 'error',
+        errorMessage: err.message,
+      });
+      continue;
+    }
+
+    const { rows, warnings, xmlDetails, hosoSummaries } = parsed;
+    allRows.push(...rows.map((row) => ({ ...row, sourceSheet: file.originalname })));
+    allXmlDetails.push(...xmlDetails.map((d) => ({ ...d, fileName: file.originalname })));
     allWarnings.push(...warnings.map((w) => `[${file.originalname}] ${w}`));
+
+    // A file normally wraps one hồ sơ (one MA_LK) — take the first successfully parsed
+    // one to represent the file in the per-file summary table.
+    const representativeHoso = hosoSummaries.find((h) => h.ok);
+    claimFiles.push({
+      fileName: file.originalname,
+      status: representativeHoso ? 'success' : 'error',
+      maLK: representativeHoso?.maLK || '',
+      hoTen: representativeHoso?.hoTen || '',
+      rowCount: rows.length,
+      parseWarningCount: warnings.length,
+      errorMessage: representativeHoso ? undefined : 'Không đọc được thông tin hồ sơ (thiếu MA_LK ở XML1)',
+    });
   }
 
-  await ClaimItem.deleteMany({ batchId: batch.batchId });
+  await Promise.all([
+    ClaimItem.deleteMany({ batchId: batch.batchId }),
+    ClaimXmlDetail.deleteMany({ batchId: batch.batchId }),
+  ]);
+
   if (allRows.length > 0) {
     await ClaimItem.insertMany(allRows.map((row) => ({ ...row, batchId: batch.batchId })));
   }
+  if (allXmlDetails.length > 0) {
+    await ClaimXmlDetail.insertMany(allXmlDetails.map((d) => ({ ...d, batchId: batch.batchId })));
+  }
 
   batch.claimFileNames = fileNames;
+  batch.claimFiles = claimFiles;
   batch.rowCounts.claimRows = allRows.length;
   batch.status = 'uploaded';
   await batch.save();
+
+  // Đối chiếu runs automatically right after upload so the per-file cảnh báo/mức cao
+  // numbers are ready as soon as the upload response comes back — no separate "Chạy đối
+  // chiếu" click needed. If it fails (e.g. transient DB issue), the upload itself still
+  // succeeded; the user can retry via the "Chạy đối chiếu" button.
+  try {
+    await reconciliationService.runAnalysis(batch.batchId);
+  } catch (err) {
+    logger.error(`Tự động chạy đối chiếu thất bại cho batch ${batch.batchId}: ${err.message}`);
+  }
 
   return { batchId: batch.batchId, rowCount: allRows.length, warnings: allWarnings };
 }
