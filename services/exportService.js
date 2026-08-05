@@ -33,7 +33,6 @@ function buildResultsWorkbook(results, sheetName) {
     { header: 'Chi tiết lệch', key: 'chiTietLech', width: 40 },
     { header: 'Mã lỗi', key: 'maLoi', width: 10 },
     { header: 'Tên lỗi', key: 'tenLoi', width: 34 },
-    { header: 'Ghi chú', key: 'ghiChu', width: 40 },
   ];
   sheet.getRow(1).font = { bold: true };
 
@@ -60,7 +59,6 @@ function buildResultsWorkbook(results, sheetName) {
       chiTietLech: (r.chiTietLech || [])
         .map((d) => `${d.truong}: XML="${d.giaTriXML}" vs Danh mục="${d.giaTriDanhMuc}"`)
         .join(' | '),
-      ghiChu: (r.ghiChu || []).join(' | '),
     };
 
     // Mỗi mã lỗi dự đoán ra 1 dòng riêng (thay vì gộp chung 1 ô) — nếu không dự đoán

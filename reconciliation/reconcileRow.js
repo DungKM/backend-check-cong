@@ -160,7 +160,7 @@ function reconcileRow(errorRow, catalogIndex) {
     result.ghiChu = [...result.ghiChu, nhomDvktNote];
   }
 
-  const mucHuongNote = checkMucHuong(errorRow);
+  const mucHuongNote = checkMucHuong(errorRow, catalogIndex.benefitRateByMa);
   result.mucHuongMismatch = Boolean(mucHuongNote);
   if (mucHuongNote) {
     result.ghiChu = [...result.ghiChu, mucHuongNote];

@@ -8,6 +8,7 @@ const CATALOG_UPLOAD_LABELS = {
   doctor: 'danh mục bác sĩ',
   serviceGroup: 'danh mục mã nhóm DVKT',
   vatTu: 'danh mục vật tư y tế',
+  benefitRate: 'danh mục mức hưởng theo đối tượng',
 };
 
 const importCatalog = asyncHandler(async (req, res) => {

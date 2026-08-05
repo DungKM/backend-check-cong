@@ -5,6 +5,7 @@ const ErrorCodeCatalog = require('../models/ErrorCodeCatalog');
 const DoctorCatalogMaster = require('../models/DoctorCatalogMaster');
 const ServiceGroupCatalog = require('../models/ServiceGroupCatalog');
 const VatTuCatalogMaster = require('../models/VatTuCatalogMaster');
+const BenefitRateCatalog = require('../models/BenefitRateCatalog');
 const CatalogImport = require('../models/CatalogImport');
 const { parseDrugCatalogWorkbook } = require('../parsers/drugCatalogParser');
 const { parseServiceCatalogWorkbook } = require('../parsers/serviceCatalogParser');
@@ -12,6 +13,7 @@ const { parseErrorCodeCatalogWorkbook } = require('../parsers/errorCodeCatalogPa
 const { parseDoctorCatalogWorkbook } = require('../parsers/doctorCatalogParser');
 const { parseServiceGroupCatalogWorkbook } = require('../parsers/serviceGroupCatalogParser');
 const { parseVatTuCatalogWorkbook } = require('../parsers/vatTuCatalogParser');
+const { parseBenefitRateCatalogWorkbook } = require('../parsers/benefitRateCatalogParser');
 const { REJECT_REASON_CATEGORY, MA_LOI_MUC_DO, MA_LOI_AP_DUNG_TRUONG } = require('../config/constants');
 const { logger } = require('../utils/logger');
 
@@ -37,19 +39,36 @@ const CATALOG_CONFIG = {
   drug: {
     model: DrugCatalogMaster,
     parse: parseDrugCatalogWorkbook,
-    uniqueKey: (row) => ({ maThuoc: row.maThuoc, tuNgay: row.tuNgay, ttThau: row.ttThau }),
+    // Không upsert/kiểm tra trùng — mỗi dòng trong file import luôn thành 1 bản ghi mới,
+    // kể cả khi trùng hết mã thuốc/từ ngày/TT thầu với dòng đã có (nhiều dòng hợp lệ có
+    // thể chia sẻ các trường này nhưng khác nhà SX/nhà thầu/số lượng...).
+    dedup: false,
     searchFields: ['maThuoc', 'tenThuoc'],
+    // Không có TU_NGAY/DEN_NGAY — file chuẩn của danh mục thuốc không có 2 cột này.
+    // tuNgay vẫn required trên schema (dùng để giới hạn hiệu lực khi đối chiếu) nên
+    // createItem() tự mặc định về một ngày rất xa trong quá khứ, xem parser cho lý do.
     fields: [
       { key: 'maThuoc', header: 'MA_THUOC', type: 'string', required: true, example: 'T001' },
-      { key: 'tenThuoc', header: 'TEN_THUOC', type: 'string', required: true, example: 'Paracetamol' },
+      { key: 'tenHoatChat', header: 'TEN_HOAT_CHAT', type: 'string', example: 'Paracetamol' },
+      { key: 'tenThuoc', header: 'TEN_THUOC', type: 'string', required: true, example: 'Paracetamol 500mg' },
       { key: 'donViTinh', header: 'DON_VI_TINH', type: 'string', example: 'Viên' },
       { key: 'hamLuong', header: 'HAM_LUONG', type: 'string', example: '500mg' },
+      { key: 'duongDung', header: 'DUONG_DUNG', type: 'string', example: 'Uống' },
+      { key: 'maDuongDung', header: 'MA_DUONG_DUNG', type: 'string', example: '01' },
+      { key: 'dangBaoChe', header: 'DANG_BAO_CHE', type: 'string', example: 'Viên nén' },
       { key: 'soDangKy', header: 'SO_DANG_KY', type: 'string', example: 'VD-12345-19' },
+      { key: 'soLuong', header: 'SO_LUONG', type: 'number', example: 1000 },
+      { key: 'donGia', header: 'DON_GIA', type: 'number', example: 1000 },
       { key: 'donGiaBH', header: 'DON_GIA_BH', type: 'number', example: 1000 },
+      { key: 'quyCach', header: 'QUY_CACH', type: 'string', example: 'Hộp 10 vỉ x 10 viên' },
+      { key: 'nhaSx', header: 'NHA_SX', type: 'string', example: '' },
+      { key: 'nuocSx', header: 'NUOC_SX', type: 'string', example: 'Việt Nam' },
+      { key: 'nhaThau', header: 'NHA_THAU', type: 'string', example: '' },
       { key: 'ttThau', header: 'TT_THAU', type: 'string', example: 'TT01' },
-      { key: 'tuNgay', header: 'TU_NGAY', type: 'date', required: true, example: '2024-01-01' },
-      { key: 'denNgay', header: 'DEN_NGAY', type: 'date', example: '2024-12-31' },
       { key: 'maCSKCB', header: 'MA_CSKCB', type: 'string', example: 'CSKCB01' },
+      { key: 'loaiThuoc', header: 'LOAI_THUOC', type: 'string', example: '' },
+      { key: 'loaiThau', header: 'LOAI_THAU', type: 'string', example: '' },
+      { key: 'htThau', header: 'HT_THAU', type: 'string', example: '' },
     ],
   },
   service: {
@@ -158,6 +177,18 @@ const CATALOG_CONFIG = {
       { key: 'htThau', header: 'HT_THAU', type: 'string', example: '' },
     ],
   },
+  benefitRate: {
+    model: BenefitRateCatalog,
+    parse: parseBenefitRateCatalogWorkbook,
+    uniqueKey: (row) => ({ ma: row.ma, nhom: row.nhom }),
+    searchFields: ['ma', 'nhom'],
+    fields: [
+      { key: 'ma', header: 'MA', type: 'string', required: true, example: 'HT' },
+      { key: 'nhom', header: 'NHOM', type: 'string', required: true, example: '4' },
+      { key: 'chiTraDungTuyen', header: 'CHITRADUNGTUYEN', type: 'number', example: 80 },
+      { key: 'chiTraTraiTuyen', header: 'CHITRATRAITUYEN', type: 'number', example: 48 },
+    ],
+  },
 };
 
 function getConfigOrThrow(type) {
@@ -231,15 +262,22 @@ async function runImportJob(catalogImport, config, buffer) {
     let rowsUpdated = 0;
 
     for (const chunk of chunkArray(rows, IMPORT_CHUNK_SIZE)) {
-      const operations = chunk.map((row) => ({
-        updateOne: {
-          filter: config.uniqueKey(row),
-          update: { $set: { ...row, lastImportId: catalogImport._id, updatedAt: new Date() } },
-          upsert: true,
-        },
-      }));
+      // dedup: false (drug) — always insert a new document, never match/overwrite an
+      // existing one by key. Other catalog types keep the upsert-by-uniqueKey behavior.
+      const operations =
+        config.dedup === false
+          ? chunk.map((row) => ({
+              insertOne: { document: { ...row, lastImportId: catalogImport._id, updatedAt: new Date() } },
+            }))
+          : chunk.map((row) => ({
+              updateOne: {
+                filter: config.uniqueKey(row),
+                update: { $set: { ...row, lastImportId: catalogImport._id, updatedAt: new Date() } },
+                upsert: true,
+              },
+            }));
       const result = await config.model.bulkWrite(operations);
-      rowsInserted += result.upsertedCount || 0;
+      rowsInserted += (result.upsertedCount || 0) + (result.insertedCount || 0);
       rowsUpdated += result.modifiedCount || 0;
 
       catalogImport.rowsInserted = rowsInserted;
@@ -321,6 +359,7 @@ function toDuplicateKeyMessage(type) {
   if (type === 'doctor') return 'Đã tồn tại bác sĩ với cùng mã CCHN.';
   if (type === 'serviceGroup') return 'Đã tồn tại dòng với cùng mã (MA).';
   if (type === 'vatTu') return 'Đã tồn tại dòng vật tư với cùng mã, TT thầu và mã CSKCB.';
+  if (type === 'benefitRate') return 'Đã tồn tại dòng mức hưởng với cùng mã đối tượng (MA) và nhóm (NHOM).';
   return 'Đã tồn tại mã lỗi với cùng từ ngày.';
 }
 
@@ -332,6 +371,12 @@ async function createItem({ type, body }) {
   // so the required-field check still passes and rows keep their schema defaults.
   if (type === 'errorCode' && doc.tuNgay === undefined) {
     doc.tuNgay = new Date();
+  }
+  // drug catalog rows have no TU_NGAY column in their real file format (see
+  // drugCatalogParser.js) and it's not collected in the manual form either — default to
+  // a far-past date so reconciliation's date-range matching never excludes the row.
+  if (type === 'drug' && doc.tuNgay === undefined) {
+    doc.tuNgay = new Date('2000-01-01');
   }
   validateDoc(config, doc);
   try {

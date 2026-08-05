@@ -5,6 +5,7 @@ const ErrorCodeCatalog = require('../models/ErrorCodeCatalog');
 const DoctorCatalogMaster = require('../models/DoctorCatalogMaster');
 const ServiceGroupCatalog = require('../models/ServiceGroupCatalog');
 const VatTuCatalogMaster = require('../models/VatTuCatalogMaster');
+const BenefitRateCatalog = require('../models/BenefitRateCatalog');
 const ClaimItem = require('../models/ClaimItem');
 const AnalysisResult = require('../models/AnalysisResult');
 const { reconcileBatch } = require('../reconciliation/reconcileBatch');
@@ -20,6 +21,7 @@ const {
 } = require('../reconciliation/predictErrorCode');
 const { buildDoctorSet } = require('../reconciliation/checkBacSi');
 const { buildServiceGroupMap } = require('../reconciliation/checkNhomDvkt');
+const { buildBenefitRateMap } = require('../reconciliation/checkMucHuong');
 const { KET_LUAN } = require('../config/constants');
 
 class NotFoundError extends Error {
@@ -35,7 +37,7 @@ async function getBatchOrThrow(batchId) {
   return batch;
 }
 
-function buildCatalogIndex(drugRows, serviceRows, doctorRows, serviceGroupRows, vatTuRows) {
+function buildCatalogIndex(drugRows, serviceRows, doctorRows, serviceGroupRows, vatTuRows, benefitRateRows) {
   const drugByCode = new Map();
   for (const row of drugRows) {
     if (!drugByCode.has(row.maThuoc)) drugByCode.set(row.maThuoc, []);
@@ -53,7 +55,8 @@ function buildCatalogIndex(drugRows, serviceRows, doctorRows, serviceGroupRows, 
   }
   const doctorSet = buildDoctorSet(doctorRows);
   const serviceGroupByMa = buildServiceGroupMap(serviceGroupRows);
-  return { drugByCode, serviceByCode, vatTuByCode, doctorSet, serviceGroupByMa };
+  const benefitRateByMa = buildBenefitRateMap(benefitRateRows);
+  return { drugByCode, serviceByCode, vatTuByCode, doctorSet, serviceGroupByMa, benefitRateByMa };
 }
 
 function buildDuDoanMaLoi(result, errorCodeIndex, ngayYLenh) {
@@ -104,16 +107,27 @@ async function runAnalysis(batchId) {
     const claimRows = await ClaimItem.find({ batchId }).lean();
     const codes = [...new Set(claimRows.map((row) => row.maChiPhi).filter(Boolean))];
 
-    const [drugRows, serviceRows, errorCodeRows, doctorRows, serviceGroupRows, vatTuRows] = await Promise.all([
-      DrugCatalogMaster.find({ maThuoc: { $in: codes } }).lean(),
-      ServiceCatalogMaster.find({ maTuongDuong: { $in: codes } }).lean(),
-      ErrorCodeCatalog.find({ active: true }).lean(),
-      DoctorCatalogMaster.find({}).lean(),
-      ServiceGroupCatalog.find({ ma: { $in: codes } }).lean(),
-      VatTuCatalogMaster.find({ maVatTu: { $in: codes } }).lean(),
-    ]);
+    const [drugRows, serviceRows, errorCodeRows, doctorRows, serviceGroupRows, vatTuRows, benefitRateRows] =
+      await Promise.all([
+        DrugCatalogMaster.find({ maThuoc: { $in: codes } }).lean(),
+        ServiceCatalogMaster.find({ maTuongDuong: { $in: codes } }).lean(),
+        ErrorCodeCatalog.find({ active: true }).lean(),
+        DoctorCatalogMaster.find({}).lean(),
+        ServiceGroupCatalog.find({ ma: { $in: codes } }).lean(),
+        VatTuCatalogMaster.find({ maVatTu: { $in: codes } }).lean(),
+        // Bảng mức hưởng theo mã đối tượng nhỏ (vài trăm dòng), không lọc theo mã chi phí
+        // như các danh mục trên — nạp toàn bộ, giống DoctorCatalogMaster.
+        BenefitRateCatalog.find({}).lean(),
+      ]);
 
-    const catalogIndex = buildCatalogIndex(drugRows, serviceRows, doctorRows, serviceGroupRows, vatTuRows);
+    const catalogIndex = buildCatalogIndex(
+      drugRows,
+      serviceRows,
+      doctorRows,
+      serviceGroupRows,
+      vatTuRows,
+      benefitRateRows
+    );
     const errorCodeIndex = buildErrorCodeIndex(errorCodeRows);
     const results = reconcileBatch(claimRows, catalogIndex);
 

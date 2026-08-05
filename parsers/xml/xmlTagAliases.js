@@ -31,9 +31,14 @@ const XML1_ALIASES = {
   maDkbd: ['MA_DKBD'],
   giayChuyenTuyen: ['GIAY_CHUYEN_TUYEN'],
   maLoaiKCB: ['MA_LOAI_KCB'],
-  // Mã đối tượng KCB (BHYT/thu phí/...) — chỉ dùng để hiển thị/xuất Excel, không tham
-  // gia đối chiếu.
+  // Mã đối tượng KCB, dạng "X.Y" — nhóm "1.x" (VD 1.1/1.2/1.3) luôn là đúng tuyến kể
+  // cả khi MA_DKBD khác MA_CSKCB (VD 1.3 = tái khám theo giấy hẹn tại nơi đã được
+  // chuyển đến trước đó), dùng trong isTraiTuyen (checkMucHuong.js).
   maDoiTuongKCB: ['MA_DOITUONG_KCB'],
+  // Lý do vào viện/nhập viện nội trú — text tự do, dùng làm tín hiệu bổ sung đúng/trái
+  // tuyến (cấp cứu, tự đến) trong checkMucHuong.js vì mỗi bệnh viện ghi một kiểu khác
+  // nhau. LY_DO_VNT ưu tiên trước vì cụ thể hơn cho ca nội trú, LY_DO_VV là fallback.
+  lyDoVv: ['LY_DO_VNT', 'LY_DO_VV'],
 };
 
 const XML2_ALIASES = {

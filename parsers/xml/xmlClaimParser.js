@@ -4,6 +4,12 @@ const { XML1_ALIASES, COST_XML_TYPES, XML_DETAIL_CONFIG } = require('./xmlTagAli
 const { bhytDateToDate } = require('../../utils/dateUtils');
 const { LOAI_CHI_PHI } = require('../../config/constants');
 
+// Zip-bomb guard: a hồ sơ .zip is a handful of XML files, never gigabytes uncompressed.
+// Caps protect the server from a small malicious/corrupt .zip expanding into a memory
+// exhaustion DoS when decompressed.
+const MAX_ZIP_ENTRIES = 200;
+const MAX_UNCOMPRESSED_BYTES = 300 * 1024 * 1024;
+
 const DETAIL_ARRAY_TAGS = [
   'HOSO',
   'FILEHOSO',
@@ -75,6 +81,7 @@ function parseXml1Header(doc) {
     giayChuyenTuyen: pick(root, XML1_ALIASES.giayChuyenTuyen),
     maLoaiKCB: pick(root, XML1_ALIASES.maLoaiKCB),
     maDoiTuongKCB: pick(root, XML1_ALIASES.maDoiTuongKCB),
+    lyDoVv: pick(root, XML1_ALIASES.lyDoVv),
   };
 }
 
@@ -116,6 +123,7 @@ function buildCostRow(type, detail, header, warnings) {
     giayChuyenTuyen: header.giayChuyenTuyen || '',
     loaiKCB: header.maLoaiKCB || '',
     maDoiTuongKCB: header.maDoiTuongKCB || '',
+    lyDoVv: header.lyDoVv || '',
     maKhoa: get('maKhoa'),
     maBacSi: get('maBacSi'),
     maGiuong: get('maGiuong'),
@@ -229,8 +237,18 @@ async function parseClaimXmlBuffer(buffer, fileName) {
   const xmlTexts = [];
   if (isZip) {
     const zip = new AdmZip(buffer);
-    for (const entry of zip.getEntries()) {
+    const entries = zip.getEntries();
+    if (entries.length > MAX_ZIP_ENTRIES) {
+      throw new Error(`File ${fileName}: gói .zip có quá nhiều mục (${entries.length}), vượt giới hạn ${MAX_ZIP_ENTRIES}`);
+    }
+
+    let totalUncompressed = 0;
+    for (const entry of entries) {
       if (entry.isDirectory || !/\.xml$/i.test(entry.entryName)) continue;
+      totalUncompressed += entry.header.size;
+      if (totalUncompressed > MAX_UNCOMPRESSED_BYTES) {
+        throw new Error(`File ${fileName}: dữ liệu giải nén từ .zip vượt giới hạn cho phép`);
+      }
       xmlTexts.push(entry.getData().toString('utf8'));
     }
     if (xmlTexts.length === 0) {

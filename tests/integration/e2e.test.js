@@ -144,7 +144,7 @@ describe('End-to-end reconciliation flow', () => {
     expect(serviceDone.rowsInserted).toBe(1);
   });
 
-  test('re-importing the same drug catalog file upserts instead of duplicating', async () => {
+  test('re-importing the same drug catalog file always inserts new rows (no dedup)', async () => {
     const drugBuffer = await buildDrugCatalogWorkbook();
     const reimportRes = await request(app)
       .post('/api/catalogs/drug/import')
@@ -153,14 +153,14 @@ describe('End-to-end reconciliation flow', () => {
     expect(reimportRes.status).toBe(202);
     const reimportDone = await waitForImport('drug', reimportRes.body.importId, token);
     expect(reimportDone.status).toBe('success');
-    expect(reimportDone.rowsInserted).toBe(0);
-    expect(reimportDone.rowsUpdated).toBe(1);
+    expect(reimportDone.rowsInserted).toBe(1);
+    expect(reimportDone.rowsUpdated).toBe(0);
 
     const listRes = await request(app)
       .get('/api/catalogs/drug?q=T001')
       .set('Authorization', `Bearer ${token}`);
     expect(listRes.status).toBe(200);
-    expect(listRes.body.total).toBe(1);
+    expect(listRes.body.total).toBe(2);
 
     const historyRes = await request(app)
       .get('/api/catalogs/drug/imports')

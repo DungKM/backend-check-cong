@@ -31,15 +31,28 @@ const ERROR_REPORT_ALIASES = {
 
 const DRUG_CATALOG_ALIASES = {
   maThuoc: ['ma_thuoc', 'ma thuoc'],
+  tenHoatChat: ['ten_hoat_chat', 'ten hoat chat'],
   tenThuoc: ['ten_thuoc', 'ten thuoc'],
   donViTinh: ['don_vi_tinh', 'don vi tinh'],
   hamLuong: ['ham_luong', 'ham luong'],
+  duongDung: ['duong_dung', 'duong dung'],
+  maDuongDung: ['ma_duong_dung', 'ma duong dung'],
+  dangBaoChe: ['dang_bao_che', 'dang bao che'],
   soDangKy: ['so_dang_ky', 'so dang ky'],
+  soLuong: ['so_luong', 'so luong'],
+  donGia: ['don_gia', 'don gia'],
   donGiaBH: ['don_gia_bh', 'don gia bh'],
+  quyCach: ['quy_cach', 'quy cach'],
+  nhaSx: ['nha_sx', 'nha sx'],
+  nuocSx: ['nuoc_sx', 'nuoc sx'],
+  nhaThau: ['nha_thau', 'nha thau'],
   ttThau: ['tt_thau', 'tt thau'],
   tuNgay: ['tu_ngay', 'tu ngay'],
   denNgay: ['den_ngay', 'den ngay'],
   maCSKCB: ['ma_cskcb', 'ma cskcb'],
+  loaiThuoc: ['loai_thuoc', 'loai thuoc'],
+  loaiThau: ['loai_thau', 'loai thau'],
+  htThau: ['ht_thau', 'ht thau'],
 };
 
 const SERVICE_CATALOG_ALIASES = {
@@ -103,6 +116,15 @@ const VAT_TU_CATALOG_ALIASES = {
   htThau: ['ht_thau', 'ht thau'],
 };
 
+// Dùng để đối chiếu MUC_HUONG trên XML3 (checkMucHuong.js): MA là 2 ký tự đầu MA_THE_BHYT
+// (mã đối tượng), NHOM là MA_LOAI_KCB — cùng cặp (MA, NHOM) tra ra % chi trả đúng/trái tuyến.
+const BENEFIT_RATE_CATALOG_ALIASES = {
+  ma: ['ma'],
+  nhom: ['nhom'],
+  chiTraDungTuyen: ['chitradungtuyen', 'chi tra dung tuyen', 'chi_tra_dung_tuyen'],
+  chiTraTraiTuyen: ['chitratraituyen', 'chi tra trai tuyen', 'chi_tra_trai_tuyen'],
+};
+
 module.exports = {
   ERROR_REPORT_ALIASES,
   DRUG_CATALOG_ALIASES,
@@ -111,4 +133,5 @@ module.exports = {
   DOCTOR_CATALOG_ALIASES,
   SERVICE_GROUP_CATALOG_ALIASES,
   VAT_TU_CATALOG_ALIASES,
+  BENEFIT_RATE_CATALOG_ALIASES,
 };

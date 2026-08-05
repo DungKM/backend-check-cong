@@ -112,6 +112,14 @@ const NHOM_DVKT_KEYWORDS = ['sai ma nhom', 'ma nhom dvkt', 'nhom dvkt'];
 // viện đề nghị sai Mức hưởng" (ML015) mã lỗi rows.
 const MUC_HUONG_KEYWORDS = ['sai muc huong', 'trai tuyen'];
 
+// LY_DO_VV/LY_DO_VNT (lý do vào viện) là text tự do, mỗi bệnh viện ghi một kiểu
+// khác nhau — dùng để bổ sung tín hiệu đúng/trái tuyến bên cạnh so MA_DKBD/MA_CSKCB
+// và GIAY_CHUYEN_TUYEN, xem checkMucHuong.js. Danh sách chưa đầy đủ, cần bổ sung
+// dần khi gặp cách ghi mới.
+const LY_DO_VV_CAP_CUU_KEYWORDS = ['cap cuu'];
+const LY_DO_VV_TU_DEN_KEYWORDS = ['tu den', 'tu di kham', 'tu toi kham'];
+const LY_DO_VV_DUNG_TUYEN_KEYWORDS = ['tai kham', 'kham lai theo giay hen'];
+
 const REJECT_REASON_KEYWORDS = {
   [REJECT_REASON_CATEGORY.VUOT_DINH_MUC]: ['vuot tran', 'vuot dinh muc', 'qua dinh muc'],
   [REJECT_REASON_CATEGORY.SAI_QUY_TAC_THANH_TOAN]: [
@@ -151,4 +159,7 @@ module.exports = {
   KHAM_TRUNG_LAP_KEYWORDS,
   NHOM_DVKT_KEYWORDS,
   MUC_HUONG_KEYWORDS,
+  LY_DO_VV_CAP_CUU_KEYWORDS,
+  LY_DO_VV_TU_DEN_KEYWORDS,
+  LY_DO_VV_DUNG_TUYEN_KEYWORDS,
 };
