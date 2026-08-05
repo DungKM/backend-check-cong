@@ -1,10 +1,14 @@
 const { normalizeText } = require('../utils/normalizeText');
 const {
   MUC_HUONG_THE_MAP,
+  MUC_LUONG_CO_SO_LICH_SU,
   LY_DO_VV_CAP_CUU_KEYWORDS,
   LY_DO_VV_TU_DEN_KEYWORDS,
   LY_DO_VV_DUNG_TUYEN_KEYWORDS,
 } = require('../config/constants');
+const { isDateInRange } = require('../utils/dateUtils');
+
+const NGUONG_TY_LE_15_LCS = 0.15;
 
 /**
  * Reads the mức hưởng group digit (3rd character) off a mã thẻ BHYT (VD
@@ -74,6 +78,80 @@ function isTraiTuyen(errorRow) {
   }
   if (isTuDen(errorRow)) return true;
   return null;
+}
+
+/**
+ * Đúng tuyến theo ML018 — so sánh trực tiếp MA_DKBD với MA_CSKCB, KHÔNG xét giấy
+ * chuyển tuyến/cấp cứu/mã đối tượng nhóm "1" như isTraiTuyen() ở trên (khác biệt
+ * có chủ đích theo yêu cầu nghiệp vụ cho ngưỡng 15% LCS, xem checkMucHuongDungTuyen15Lcs).
+ * Trả về null khi thiếu MA_DKBD/MA_CSKCB thay vì đoán.
+ */
+function isDungTuyenTheoMaDkbd(errorRow) {
+  if (!errorRow.maDkbd || !errorRow.maCSKCB) return null;
+  return normalizeText(errorRow.maDkbd) === normalizeText(errorRow.maCSKCB);
+}
+
+/**
+ * Tra mức lương cơ sở (LCS) hiệu lực tại một ngày, theo MUC_LUONG_CO_SO_LICH_SU
+ * (config/constants.js). Trả về null khi ngày thiếu hoặc không rơi vào giai đoạn
+ * nào trong bảng (VD ngày quá cũ, trước mốc đầu tiên đã khai báo).
+ */
+function getMucLuongCoSo(ngay) {
+  if (!ngay) return null;
+  const moc = MUC_LUONG_CO_SO_LICH_SU.find((m) =>
+    isDateInRange(ngay, new Date(m.tuNgay), m.denNgay ? new Date(m.denNgay) : null)
+  );
+  return moc ? moc.gia : null;
+}
+
+/**
+ * Cộng dồn chi phí đề nghị BHYT thanh toán (THANH_TIEN_BH/deNghi) theo từng MA_LK
+ * (một hồ sơ/lần khám có thể có nhiều dòng chi phí thuốc + DVKT/VTYT) — dùng làm
+ * "chi phí cho một lần khám bệnh, chữa bệnh" để so ngưỡng 15% LCS (ML018). Đây là
+ * xấp xỉ theo dữ liệu sẵn có (không có sẵn trường tổng chi phí cấp hồ sơ kiểu
+ * T_TONGCHI trong dữ liệu đã parse) — nếu có nguồn chính xác hơn thì thay ở đây.
+ */
+function tinhTongChiPhiTheoLK(errorRows) {
+  const map = new Map();
+  for (const row of errorRows || []) {
+    if (!row.maLK) continue;
+    const deNghi = Number(row.deNghi) || 0;
+    map.set(row.maLK, (map.get(row.maLK) || 0) + deNghi);
+  }
+  return map;
+}
+
+/**
+ * ML018 — "Vào viện đúng tuyến, Chi phí >=15% TLCS, Bệnh viện đề nghị sai Mức
+ * hưởng": khi đúng tuyến (MA_DKBD == MA_CSKCB) và tổng chi phí đợt KCB (cộng dồn
+ * theo MA_LK, xem tinhTongChiPhiTheoLK) đạt từ 15% mức lương cơ sở tại NGAY_VAO
+ * trở lên, dòng chi phí phải áp dụng đúng % mức hưởng chuẩn theo danh mục (không
+ * được mặc định 100% — mặc định 100% chỉ đúng khi chi phí DƯỚI ngưỡng). Trả về
+ * null khi trái tuyến, dưới ngưỡng, hoặc thiếu dữ liệu cần thiết (không đoán).
+ */
+function checkMucHuongDungTuyen15Lcs(errorRow, benefitRateMap, tongChiPhiByLK) {
+  if (isDungTuyenTheoMaDkbd(errorRow) !== true) return null;
+
+  const tongChiPhi = tongChiPhiByLK ? tongChiPhiByLK.get(errorRow.maLK) : null;
+  if (tongChiPhi === null || tongChiPhi === undefined) return null;
+
+  const mucLuongCoSo = getMucLuongCoSo(errorRow.ngayVao);
+  if (mucLuongCoSo === null) return null;
+
+  const nguong = NGUONG_TY_LE_15_LCS * mucLuongCoSo;
+  if (tongChiPhi < nguong) return null;
+
+  const benefitRow = lookupBenefitRate(errorRow, benefitRateMap);
+  if (!benefitRow || benefitRow.chiTraDungTuyen === null || benefitRow.chiTraDungTuyen === undefined) {
+    return null;
+  }
+  if (errorRow.mucHuong === null || errorRow.mucHuong === undefined) return null;
+
+  const pctChuan = benefitRow.chiTraDungTuyen;
+  if (Number(errorRow.mucHuong) === pctChuan) return null;
+
+  const doiTuong = extractDoiTuongFromThe(errorRow.maThe);
+  return `Hồ sơ đúng tuyến (MA_LK "${errorRow.maLK}"), tổng chi phí đợt KCB "${tongChiPhi}đ" đã đạt ngưỡng 15% mức lương cơ sở ("${Math.round(nguong)}đ"), nhưng mức hưởng đề nghị "${errorRow.mucHuong}%" không khớp mức hưởng chuẩn theo danh mục (mã đối tượng "${doiTuong}", đúng tuyến: chuẩn "${pctChuan}%")`;
 }
 
 /**
@@ -163,7 +241,11 @@ module.exports = {
   isTuDen,
   isDoiTuongDungTuyen,
   isTraiTuyen,
+  isDungTuyenTheoMaDkbd,
+  getMucLuongCoSo,
+  tinhTongChiPhiTheoLK,
   buildBenefitRateMap,
   lookupBenefitRate,
   checkMucHuong,
+  checkMucHuongDungTuyen15Lcs,
 };

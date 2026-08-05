@@ -1,11 +1,13 @@
 const { reconcileRow } = require('./reconcileRow');
 const { checkNgayGiuongBatch } = require('./checkNgayGiuong');
 const { checkKhamBenhBatch, isKhamBenhRow } = require('./checkKhamBenh');
+const { checkMucHuongDungTuyen15Lcs, tinhTongChiPhiTheoLK } = require('./checkMucHuong');
 const { KET_LUAN } = require('../config/constants');
 
 function reconcileBatch(errorRows, catalogIndex) {
   const giuongNotes = checkNgayGiuongBatch(errorRows);
   const khamNotes = checkKhamBenhBatch(errorRows);
+  const tongChiPhiByLK = tinhTongChiPhiTheoLK(errorRows);
 
   return errorRows.map((errorRow) => {
     try {
@@ -27,6 +29,16 @@ function reconcileBatch(errorRows, catalogIndex) {
       result.khamTrungLapMismatch = Boolean(khamNote);
       if (khamNote) {
         result.ghiChu = [...result.ghiChu, khamNote];
+      }
+
+      const mucHuongDungTuyenNote = checkMucHuongDungTuyen15Lcs(
+        errorRow,
+        catalogIndex.benefitRateByMa,
+        tongChiPhiByLK
+      );
+      result.mucHuongDungTuyenMismatch = Boolean(mucHuongDungTuyenNote);
+      if (mucHuongDungTuyenNote) {
+        result.ghiChu = [...result.ghiChu, mucHuongDungTuyenNote];
       }
 
       return { errorRow, result, error: null };

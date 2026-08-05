@@ -59,6 +59,9 @@ const MA_LOI_AP_DUNG_TRUONG = {
   KHAM_TRUNG_LAP: 'KHAM_TRUNG_LAP',
   NHOM_DVKT: 'NHOM_DVKT',
   MUC_HUONG: 'MUC_HUONG',
+  // Riêng cho ML018 (đúng tuyến, chi phí >=15% LCS) — tách khỏi MUC_HUONG (ML015,
+  // trái tuyến) vì hai mã lỗi mô tả điều kiện tuyến ngược nhau.
+  MUC_HUONG_DUNG_TUYEN: 'MUC_HUONG_DUNG_TUYEN',
 };
 
 // Mã mức hưởng ghi trên thẻ BHYT (ký tự thứ 3 của số thẻ, VD "TC3363621769845"
@@ -72,6 +75,20 @@ const MUC_HUONG_THE_MAP = {
   4: 80,
   5: 100,
 };
+
+// Mức lương cơ sở (LCS) theo từng giai đoạn hiệu lực — do Chính phủ quy định và
+// thay đổi theo Nghị định (mốc gần nhất đã xác nhận: NĐ 24/2023/NĐ-CP hiệu lực
+// 01/07/2023, NĐ 73/2024/NĐ-CP hiệu lực 01/07/2024). Dùng làm ngưỡng 15% LCS cho
+// ML018 ("Vào viện đúng tuyến, Chi phí >=15% TLCS, Bệnh viện đề nghị sai Mức
+// hưởng", xem checkMucHuong.js). denNgay: null nghĩa là mốc hiện đang hiệu lực —
+// CẦN KIỂM TRA lại xem đã có Nghị định điều chỉnh mức lương cơ sở mới hơn chưa
+// (đặc biệt nếu đối chiếu hồ sơ phát sinh gần thời điểm hiện tại) và bổ sung dòng
+// mới (kèm denNgay cho dòng cũ) nếu có, tránh dùng nhầm mốc đã hết hiệu lực.
+const MUC_LUONG_CO_SO_LICH_SU = [
+  { tuNgay: '2019-07-01', denNgay: '2023-06-30', gia: 1490000 },
+  { tuNgay: '2023-07-01', denNgay: '2024-06-30', gia: 1800000 },
+  { tuNgay: '2024-07-01', denNgay: null, gia: 2340000 },
+];
 
 // Keyword groups are matched against normalized (accent-stripped, lowercased) text.
 // Order matters when multiple categories share keywords: first matching group wins.
@@ -112,6 +129,12 @@ const NHOM_DVKT_KEYWORDS = ['sai ma nhom', 'ma nhom dvkt', 'nhom dvkt'];
 // viện đề nghị sai Mức hưởng" (ML015) mã lỗi rows.
 const MUC_HUONG_KEYWORDS = ['sai muc huong', 'trai tuyen'];
 
+// Same auto-detect role as BAC_SI_KEYWORDS above, for "Vào viện đúng tuyến, Chi
+// phí >=15% TLCS, Bệnh viện đề nghị sai Mức hưởng" (ML018) mã lỗi rows — kept
+// separate from MUC_HUONG_KEYWORDS (ML015, trái tuyến) since the two describe
+// opposite tuyến conditions.
+const MUC_HUONG_DUNG_TUYEN_KEYWORDS = ['15% tlcs', '15% muc luong co so', 'dung tuyen'];
+
 // LY_DO_VV/LY_DO_VNT (lý do vào viện) là text tự do, mỗi bệnh viện ghi một kiểu
 // khác nhau — dùng để bổ sung tín hiệu đúng/trái tuyến bên cạnh so MA_DKBD/MA_CSKCB
 // và GIAY_CHUYEN_TUYEN, xem checkMucHuong.js. Danh sách chưa đầy đủ, cần bổ sung
@@ -151,6 +174,7 @@ module.exports = {
   CHI_TIET_LECH_TRUONG,
   MA_LOI_AP_DUNG_TRUONG,
   MUC_HUONG_THE_MAP,
+  MUC_LUONG_CO_SO_LICH_SU,
   CHI_PHI_KEYWORDS,
   REJECT_REASON_KEYWORDS,
   BAC_SI_KEYWORDS,
@@ -159,6 +183,7 @@ module.exports = {
   KHAM_TRUNG_LAP_KEYWORDS,
   NHOM_DVKT_KEYWORDS,
   MUC_HUONG_KEYWORDS,
+  MUC_HUONG_DUNG_TUYEN_KEYWORDS,
   LY_DO_VV_CAP_CUU_KEYWORDS,
   LY_DO_VV_TU_DEN_KEYWORDS,
   LY_DO_VV_DUNG_TUYEN_KEYWORDS,

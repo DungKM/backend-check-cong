@@ -2,8 +2,12 @@ const {
   extractMucHuongFromThe,
   extractDoiTuongFromThe,
   isTraiTuyen,
+  isDungTuyenTheoMaDkbd,
+  getMucLuongCoSo,
+  tinhTongChiPhiTheoLK,
   buildBenefitRateMap,
   checkMucHuong,
+  checkMucHuongDungTuyen15Lcs,
 } = require('../../../reconciliation/checkMucHuong');
 
 const capCuuHeaders = ['Bệnh nhân cấp cứu', 'CẤP CỨU', 'cap cuu'];
@@ -196,5 +200,108 @@ describe('checkMucHuong với BenefitRateCatalog (mã đối tượng + MA_LOAI_
   test('không truyền benefitRateMap -> hành vi như trước khi có danh mục', () => {
     const row = { ...baseRow, mucHuong: 95 };
     expect(checkMucHuong(row)).toBeNull();
+  });
+});
+
+describe('isDungTuyenTheoMaDkbd', () => {
+  test('MA_DKBD khớp MA_CSKCB -> true', () => {
+    expect(isDungTuyenTheoMaDkbd({ maDkbd: '01007', maCSKCB: '01007' })).toBe(true);
+  });
+
+  test('MA_DKBD khác MA_CSKCB -> false (không xét giấy chuyển tuyến/cấp cứu)', () => {
+    expect(
+      isDungTuyenTheoMaDkbd({
+        maDkbd: '36907',
+        maCSKCB: '01007',
+        giayChuyenTuyen: 'SO123',
+        lyDoVv: 'cap cuu',
+      })
+    ).toBe(false);
+  });
+
+  test('thiếu MA_DKBD hoặc MA_CSKCB -> null', () => {
+    expect(isDungTuyenTheoMaDkbd({ maCSKCB: '01007' })).toBeNull();
+    expect(isDungTuyenTheoMaDkbd({ maDkbd: '01007' })).toBeNull();
+  });
+});
+
+describe('getMucLuongCoSo', () => {
+  test('tra đúng mốc theo ngày', () => {
+    expect(getMucLuongCoSo(new Date('2023-01-01'))).toBe(1490000);
+    expect(getMucLuongCoSo(new Date('2023-07-01'))).toBe(1800000);
+    expect(getMucLuongCoSo(new Date('2024-07-01'))).toBe(2340000);
+    expect(getMucLuongCoSo(new Date('2026-01-01'))).toBe(2340000);
+  });
+
+  test('thiếu ngày hoặc quá cũ (trước mốc đầu tiên) -> null', () => {
+    expect(getMucLuongCoSo(null)).toBeNull();
+    expect(getMucLuongCoSo(new Date('2018-01-01'))).toBeNull();
+  });
+});
+
+describe('tinhTongChiPhiTheoLK', () => {
+  test('cộng dồn deNghi theo MA_LK, bỏ qua dòng thiếu MA_LK', () => {
+    const map = tinhTongChiPhiTheoLK([
+      { maLK: 'LK001', deNghi: 100000 },
+      { maLK: 'LK001', deNghi: 50000 },
+      { maLK: 'LK002', deNghi: 200000 },
+      { deNghi: 999 },
+    ]);
+    expect(map.get('LK001')).toBe(150000);
+    expect(map.get('LK002')).toBe(200000);
+    expect(map.size).toBe(2);
+  });
+});
+
+describe('checkMucHuongDungTuyen15Lcs (ML018)', () => {
+  const benefitRateMap = buildBenefitRateMap([
+    { ma: 'TC', nhom: '2', chiTraDungTuyen: 80, chiTraTraiTuyen: 48 },
+  ]);
+
+  const baseRow = {
+    maLK: 'LK001',
+    maThe: 'TC3010124582880',
+    loaiKCB: '2',
+    maDkbd: '01007',
+    maCSKCB: '01007',
+    ngayVao: new Date('2024-08-01'), // LCS hiệu lực: 2.340.000 -> ngưỡng 15% = 351.000
+  };
+
+  test('đúng tuyến, chi phí >=15% LCS, mức hưởng đề nghị sai -> flagged', () => {
+    const tongChiPhiByLK = new Map([['LK001', 400000]]);
+    const row = { ...baseRow, mucHuong: 100 };
+    const note = checkMucHuongDungTuyen15Lcs(row, benefitRateMap, tongChiPhiByLK);
+    expect(note).toEqual(expect.stringContaining('100%'));
+    expect(note).toEqual(expect.stringContaining('80%'));
+    expect(note).toEqual(expect.stringContaining('đúng tuyến'));
+  });
+
+  test('đúng tuyến, chi phí >=15% LCS, mức hưởng đề nghị khớp chuẩn -> no flag', () => {
+    const tongChiPhiByLK = new Map([['LK001', 400000]]);
+    const row = { ...baseRow, mucHuong: 80 };
+    expect(checkMucHuongDungTuyen15Lcs(row, benefitRateMap, tongChiPhiByLK)).toBeNull();
+  });
+
+  test('đúng tuyến nhưng chi phí dưới ngưỡng 15% LCS -> no flag dù khai 100%', () => {
+    const tongChiPhiByLK = new Map([['LK001', 100000]]);
+    const row = { ...baseRow, mucHuong: 100 };
+    expect(checkMucHuongDungTuyen15Lcs(row, benefitRateMap, tongChiPhiByLK)).toBeNull();
+  });
+
+  test('trái tuyến (MA_DKBD khác MA_CSKCB) -> không thuộc phạm vi ML018, no flag', () => {
+    const tongChiPhiByLK = new Map([['LK001', 400000]]);
+    const row = { ...baseRow, maDkbd: '36907', mucHuong: 100 };
+    expect(checkMucHuongDungTuyen15Lcs(row, benefitRateMap, tongChiPhiByLK)).toBeNull();
+  });
+
+  test('thiếu dữ liệu chi phí theo MA_LK -> no flag', () => {
+    const row = { ...baseRow, mucHuong: 100 };
+    expect(checkMucHuongDungTuyen15Lcs(row, benefitRateMap, new Map())).toBeNull();
+  });
+
+  test('không có dòng khớp trong BenefitRateCatalog -> no flag (không đoán)', () => {
+    const tongChiPhiByLK = new Map([['LK001', 400000]]);
+    const row = { ...baseRow, maThe: 'XX3010124582880', mucHuong: 100 };
+    expect(checkMucHuongDungTuyen15Lcs(row, benefitRateMap, tongChiPhiByLK)).toBeNull();
   });
 });

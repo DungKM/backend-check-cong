@@ -5,6 +5,7 @@ const {
   predictNgaySinhErrorCode,
   predictNgayGiuongErrorCode,
   predictKhamTrungLapErrorCode,
+  predictMucHuongDungTuyenErrorCode,
 } = require('../../../reconciliation/predictErrorCode');
 const { KET_LUAN } = require('../../../config/constants');
 
@@ -218,5 +219,33 @@ describe('predictKhamTrungLapErrorCode', () => {
     const rows = [errorCodeRow({ maLoi: 'L001', apDungTruong: 'Đơn giá' })];
     const index = buildErrorCodeIndex(rows);
     expect(predictKhamTrungLapErrorCode(index)).toEqual([]);
+  });
+});
+
+describe('predictMucHuongDungTuyenErrorCode', () => {
+  test('untagged mã lỗi whose diễn giải mentions "đúng tuyến" + "15% TLCS" matches automatically', () => {
+    const rows = [
+      errorCodeRow({
+        maLoi: 'ML018',
+        tenLoi: 'Vào viện đúng tuyến, Chi phí >=15% TLCS, Bệnh viện đề nghị sai Mức hưởng',
+        apDungTruong: '',
+      }),
+      errorCodeRow({ maLoi: 'ML015', tenLoi: 'Vào viện trái tuyến, Bệnh viện đề nghị sai Mức hưởng', apDungTruong: '' }),
+      errorCodeRow({ maLoi: 'L999', tenLoi: 'Chung chung', apDungTruong: '' }),
+    ];
+    const index = buildErrorCodeIndex(rows);
+    expect(predictMucHuongDungTuyenErrorCode(index).map((w) => w.maLoi)).toEqual(['ML018']);
+  });
+
+  test('mã lỗi explicitly tagged apDungTruong = MUC_HUONG_DUNG_TUYEN also matches', () => {
+    const rows = [errorCodeRow({ maLoi: 'L777', tenLoi: 'Sai lệch khác', apDungTruong: 'MUC_HUONG_DUNG_TUYEN' })];
+    const index = buildErrorCodeIndex(rows);
+    expect(predictMucHuongDungTuyenErrorCode(index).map((w) => w.maLoi)).toEqual(['L777']);
+  });
+
+  test('no mã lỗi related -> empty result', () => {
+    const rows = [errorCodeRow({ maLoi: 'L001', apDungTruong: 'Đơn giá' })];
+    const index = buildErrorCodeIndex(rows);
+    expect(predictMucHuongDungTuyenErrorCode(index)).toEqual([]);
   });
 });

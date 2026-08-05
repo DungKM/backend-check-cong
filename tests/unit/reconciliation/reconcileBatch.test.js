@@ -73,4 +73,49 @@ describe('reconcileBatch', () => {
     expect(results[1].result.khamTrungLapMismatch).toBe(true);
     expect(results[2].result.khamTrungLapMismatch).toBe(false);
   });
+
+  test('ML018: đúng tuyến, tổng chi phí 2 dòng cùng MA_LK >=15% LCS, mức hưởng sai -> flags both rows', () => {
+    const { buildBenefitRateMap } = require('../../../reconciliation/checkMucHuong');
+    const catalogIndex = {
+      drugByCode: new Map(),
+      serviceByCode: new Map(),
+      benefitRateByMa: buildBenefitRateMap([
+        { ma: 'TC', nhom: '2', chiTraDungTuyen: 80, chiTraTraiTuyen: 48 },
+      ]),
+    };
+    const rows = [
+      {
+        maLK: 'LK001',
+        maChiPhi: 'THUOC1',
+        loaiChiPhi: 'Thuốc',
+        maThe: 'TC3010124582880',
+        loaiKCB: '2',
+        maDkbd: '01007',
+        maCSKCB: '01007',
+        ngayVao: d('2024-08-01'),
+        ngayYLenh: d('2024-08-01'),
+        deNghi: 250000,
+        mucHuong: 100,
+        lyDoTuChoi: '',
+      },
+      {
+        maLK: 'LK001',
+        maChiPhi: 'DVKT1',
+        loaiChiPhi: 'Dịch vụ',
+        maThe: 'TC3010124582880',
+        loaiKCB: '2',
+        maDkbd: '01007',
+        maCSKCB: '01007',
+        ngayVao: d('2024-08-01'),
+        ngayYLenh: d('2024-08-01'),
+        deNghi: 200000, // tổng 2 dòng = 450.000, >= 15% * 2.340.000 = 351.000
+        mucHuong: 100,
+        lyDoTuChoi: '',
+      },
+    ];
+    const results = reconcileBatch(rows, catalogIndex);
+    expect(results[0].result.mucHuongDungTuyenMismatch).toBe(true);
+    expect(results[1].result.mucHuongDungTuyenMismatch).toBe(true);
+    expect(results[0].result.ghiChu.some((g) => g.includes('15%'))).toBe(true);
+  });
 });
