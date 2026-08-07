@@ -54,7 +54,11 @@ const MA_LOI_AP_DUNG_TRUONG = {
   // code regardless of loại chi phí. See predictErrorCode.js.
   KHONG_TIM_THAY_VAT_TU: 'KHONG_TIM_THAY_VAT_TU',
   MA_BAC_SI: 'MA_BAC_SI',
+  // Thẻ sai ngày sinh/họ tên so với CSDL thẻ BHYT thật của BHXH (ML011/ML019) — đối
+  // chiếu qua API cổng BHXH (services/bhxhEgwService.js), không còn suy đoán qua CCCD
+  // như trước (đã bỏ vì sai bản chất).
   NGAY_SINH: 'NGAY_SINH',
+  HO_TEN: 'HO_TEN',
   NGAY_GIUONG: 'NGAY_GIUONG',
   KHAM_TRUNG_LAP: 'KHAM_TRUNG_LAP',
   NHOM_DVKT: 'NHOM_DVKT',
@@ -110,8 +114,11 @@ const CHI_PHI_KEYWORDS = {
 // them without requiring the admin to manually tag apDungTruong = MA_BAC_SI first.
 const BAC_SI_KEYWORDS = ['ma bac si'];
 
-// Same auto-detect role as BAC_SI_KEYWORDS above, for "thẻ sai ngày sinh" mã lỗi rows.
+// Same auto-detect role as BAC_SI_KEYWORDS above, for "thẻ sai ngày sinh"/"thẻ sai họ
+// tên" (ML011/ML019) mã lỗi rows — kết quả đối chiếu lấy từ API cổng BHXH thật (xem
+// theBhxhBatchCheck.js), không phải suy đoán trong dữ liệu offline.
 const NGAY_SINH_KEYWORDS = ['ngay sinh'];
+const HO_TEN_KEYWORDS = ['sai ho ten', 'ho ten'];
 
 // Same auto-detect role as BAC_SI_KEYWORDS above, for "thanh toán ngày giường sai quy
 // định" mã lỗi rows.
@@ -179,6 +186,7 @@ module.exports = {
   REJECT_REASON_KEYWORDS,
   BAC_SI_KEYWORDS,
   NGAY_SINH_KEYWORDS,
+  HO_TEN_KEYWORDS,
   NGAY_GIUONG_KEYWORDS,
   KHAM_TRUNG_LAP_KEYWORDS,
   NHOM_DVKT_KEYWORDS,

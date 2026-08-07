@@ -14,6 +14,7 @@ const catalogRoutes = require('./routes/catalogRoutes');
 const userRoutes = require('./routes/userRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const bhxhEgwRoutes = require('./routes/bhxhEgwRoutes');
 
 function createApp() {
   const app = express();
@@ -38,6 +39,7 @@ function createApp() {
   app.use('/api/users', userRoutes);
   app.use('/api/stats', statsRoutes);
   app.use('/api/chat', chatRoutes);
+  app.use('/api/bhxh-egw', bhxhEgwRoutes);
 
   // Serve FE build nếu đã build (không ảnh hưởng dev local chạy Vite riêng).
   const frontendDistPath = path.join(__dirname, '../frontend-check-cong/dist');

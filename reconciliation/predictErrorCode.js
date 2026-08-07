@@ -5,6 +5,7 @@ const {
   MA_LOI_AP_DUNG_TRUONG,
   BAC_SI_KEYWORDS,
   NGAY_SINH_KEYWORDS,
+  HO_TEN_KEYWORDS,
   NGAY_GIUONG_KEYWORDS,
   KHAM_TRUNG_LAP_KEYWORDS,
   NHOM_DVKT_KEYWORDS,
@@ -107,10 +108,10 @@ function matchesKeyword(row, keywords) {
   return keywords.some((keyword) => norm.includes(keyword));
 }
 
-// Shared by predictBacSiErrorCode/predictNgaySinhErrorCode below: both checks
-// (checkBacSi.js, checkNgaySinh.js) are orthogonal to chi phí catalog matching —
-// they can fire on any ketLuan, including KHONG_LIEN_QUAN_DANH_MUC — so they're
-// predicted separately rather than folded into predictErrorCode above. Matches
+// Shared by predictBacSiErrorCode and friends below: these checks (checkBacSi.js,
+// checkNhomDvkt.js, ...) are orthogonal to chi phí catalog matching — they can fire
+// on any ketLuan, including KHONG_LIEN_QUAN_DANH_MUC — so they're predicted
+// separately rather than folded into predictErrorCode above. Matches
 // mã lỗi either explicitly tagged apDungTruong = fieldTag, or whose tên/diễn giải
 // text mentions one of `keywords` — so existing, untagged mã lỗi catalogs link up
 // without the admin having to manually tag them first. No nhómLỗi-wide fallback:
@@ -132,6 +133,10 @@ function predictBacSiErrorCode(errorCodeIndex, ngayYLenh) {
 
 function predictNgaySinhErrorCode(errorCodeIndex, ngayYLenh) {
   return predictByFieldOrKeyword(errorCodeIndex, ngayYLenh, MA_LOI_AP_DUNG_TRUONG.NGAY_SINH, NGAY_SINH_KEYWORDS);
+}
+
+function predictHoTenErrorCode(errorCodeIndex, ngayYLenh) {
+  return predictByFieldOrKeyword(errorCodeIndex, ngayYLenh, MA_LOI_AP_DUNG_TRUONG.HO_TEN, HO_TEN_KEYWORDS);
 }
 
 function predictNgayGiuongErrorCode(errorCodeIndex, ngayYLenh) {
@@ -169,6 +174,7 @@ module.exports = {
   predictErrorCode,
   predictBacSiErrorCode,
   predictNgaySinhErrorCode,
+  predictHoTenErrorCode,
   predictNgayGiuongErrorCode,
   predictKhamTrungLapErrorCode,
   predictNhomDvktErrorCode,

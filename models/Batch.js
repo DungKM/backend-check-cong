@@ -10,14 +10,14 @@ const batchSchema = new mongoose.Schema({
   // Per-file breakdown of the last claim-XML upload — powers the "bảng tổng hợp theo
   // file" view (ClaimFilesPage). `status` is 'error' when the file itself failed to
   // parse (e.g. not a valid GIAMDINHHS wrapper) — other files in the same upload are
-  // unaffected. Populated by uploadService.ingestClaimXml.
+  // unaffected. Populated by uploadService.ingestClaimXml. Không có hoTen (PII) —
+  // nội dung hồ sơ chỉ ở bộ nhớ tạm, xem services/claimMemoryStore.js.
   claimFiles: {
     type: [
       {
         fileName: { type: String, trim: true },
         status: { type: String, enum: ['success', 'error'], default: 'success' },
         maLK: { type: String, trim: true },
-        hoTen: { type: String, trim: true },
         rowCount: { type: Number, default: 0 },
         parseWarningCount: { type: Number, default: 0 },
         errorMessage: { type: String, trim: true },

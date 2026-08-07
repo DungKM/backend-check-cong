@@ -3,7 +3,6 @@ const { findValidCatalogRow } = require('./matchCatalogRow');
 const { compareDrugFields, compareServiceFields, compareVatTuFields } = require('./compareFields');
 const { classifyRejectReason } = require('./classifyRejectReason');
 const { checkBacSi } = require('./checkBacSi');
-const { checkNgaySinh } = require('./checkNgaySinh');
 const { checkNhomDvkt } = require('./checkNhomDvkt');
 const { checkMucHuong } = require('./checkMucHuong');
 const { KET_LUAN, LOAI_CHI_PHI, REJECT_REASON_CATEGORY } = require('../config/constants');
@@ -134,11 +133,16 @@ function reconcileChiPhiRow(errorRow, catalogIndex) {
   return { ketLuan, chiTietLech, rejectReasonCategory, loai, ghiChu };
 }
 
-// Mã bác sĩ hợp lệ (theo mã CCHN), ngày sinh (vs. số CCCD), mã nhóm DVKT (vs.
-// ServiceGroupCatalog), and mức hưởng/trái tuyến are independent checks from chi
-// phí catalog matching, so they're layered on as extra ghi chú rather than
-// folded into pickCandidateSetForRow/ketLuan above — keeps ketLuan's existing
-// meaning (per README) untouched.
+// Mã bác sĩ hợp lệ (theo mã CCHN), mã nhóm DVKT (vs. ServiceGroupCatalog), and mức
+// hưởng/trái tuyến are independent checks from chi phí catalog matching, so they're
+// layered on as extra ghi chú rather than folded into pickCandidateSetForRow/ketLuan
+// above — keeps ketLuan's existing meaning (per README) untouched.
+//
+// Thẻ sai họ tên/ngày sinh (ML019/ML011) KHÔNG nằm ở đây nữa — check tự-nhất-quán
+// theo CCCD cũ đã bị bỏ vì sai bản chất (ML011 phải so với CSDL thẻ BHYT của BHXH,
+// không thể suy từ CCCD). Đang chuyển sang gọi API cổng BHXH thật (xem
+// services/bhxhEgwService.js) — chưa fold vào batch reconciliation vì còn chờ xác
+// nhận response mẫu + chính sách gọi (tự động dedupe theo mã thẻ hay theo yêu cầu).
 function reconcileRow(errorRow, catalogIndex) {
   const result = reconcileChiPhiRow(errorRow, catalogIndex);
 
@@ -146,12 +150,6 @@ function reconcileRow(errorRow, catalogIndex) {
   result.bacSiMismatch = Boolean(bacSiNote);
   if (bacSiNote) {
     result.ghiChu = [...result.ghiChu, bacSiNote];
-  }
-
-  const ngaySinhNote = checkNgaySinh(errorRow);
-  result.ngaySinhMismatch = Boolean(ngaySinhNote);
-  if (ngaySinhNote) {
-    result.ghiChu = [...result.ghiChu, ngaySinhNote];
   }
 
   const nhomDvktNote = checkNhomDvkt(errorRow, catalogIndex.serviceGroupByMa);

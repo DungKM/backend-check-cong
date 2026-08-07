@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const Batch = require('../models/Batch');
-const ClaimItem = require('../models/ClaimItem');
-const ClaimXmlDetail = require('../models/ClaimXmlDetail');
+const claimMemoryStore = require('./claimMemoryStore');
 const { parseClaimXmlBuffer } = require('../parsers/xml/xmlClaimParser');
 const reconciliationService = require('./reconciliationService');
 const { logger } = require('../utils/logger');
@@ -49,29 +48,22 @@ async function ingestClaimXml({ batchId, userId, files }) {
 
     // A file normally wraps one hồ sơ (one MA_LK) — take the first successfully parsed
     // one to represent the file in the per-file summary table.
+    // KHÔNG lưu hoTen ở đây nữa (PII) — Batch chỉ giữ số liệu tổng hợp không định danh.
     const representativeHoso = hosoSummaries.find((h) => h.ok);
     claimFiles.push({
       fileName: file.originalname,
       status: representativeHoso ? 'success' : 'error',
       maLK: representativeHoso?.maLK || '',
-      hoTen: representativeHoso?.hoTen || '',
       rowCount: rows.length,
       parseWarningCount: warnings.length,
       errorMessage: representativeHoso ? undefined : 'Không đọc được thông tin hồ sơ (thiếu MA_LK ở XML1)',
     });
   }
 
-  await Promise.all([
-    ClaimItem.deleteMany({ batchId: batch.batchId }),
-    ClaimXmlDetail.deleteMany({ batchId: batch.batchId }),
-  ]);
-
-  if (allRows.length > 0) {
-    await ClaimItem.insertMany(allRows.map((row) => ({ ...row, batchId: batch.batchId })));
-  }
-  if (allXmlDetails.length > 0) {
-    await ClaimXmlDetail.insertMany(allXmlDetails.map((d) => ({ ...d, batchId: batch.batchId })));
-  }
+  // Nội dung hồ sơ (tên/ngày sinh/mã thẻ/chi phí...) chỉ giữ trong bộ nhớ tiến trình,
+  // KHÔNG ghi MongoDB — xem claimMemoryStore.js.
+  claimMemoryStore.setClaimItems(batch.batchId, allRows.map((row) => ({ ...row, batchId: batch.batchId })));
+  claimMemoryStore.setClaimXmlDetails(batch.batchId, allXmlDetails.map((d) => ({ ...d, batchId: batch.batchId })));
 
   batch.claimFileNames = fileNames;
   batch.claimFiles = claimFiles;

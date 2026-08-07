@@ -134,23 +134,6 @@ describe('reconcileRow', () => {
     expect(result.bacSiMismatch).toBe(false);
   });
 
-  test('năm sinh lệch số CCCD -> ghi chú flagged independently of chi phí ketLuan', () => {
-    const catalogIndex = buildCatalogIndex({ drugs: [baseDrug] });
-    const errorRow = { ...baseErrorRow, soCCCD: '001054010978', ngaySinh: new Date(Date.UTC(1975, 2, 28)) };
-    const result = reconcileRow(errorRow, catalogIndex);
-    expect(result.ketLuan).toBe('KHONG_LIEN_QUAN_DANH_MUC');
-    expect(result.ghiChu.some((g) => g.includes('1975') && g.includes('1954'))).toBe(true);
-    expect(result.ngaySinhMismatch).toBe(true);
-  });
-
-  test('năm sinh khớp số CCCD -> no extra ghi chú', () => {
-    const catalogIndex = buildCatalogIndex({ drugs: [baseDrug] });
-    const errorRow = { ...baseErrorRow, soCCCD: '001054010978', ngaySinh: new Date(Date.UTC(1954, 2, 28)) };
-    const result = reconcileRow(errorRow, catalogIndex);
-    expect(result.ghiChu).toEqual([]);
-    expect(result.ngaySinhMismatch).toBe(false);
-  });
-
   test('mã nhóm DVKT khai báo sai so với danh mục -> ghi chú flagged independently of chi phí ketLuan', () => {
     const catalogIndex = buildCatalogIndex({ drugs: [baseDrug] });
     catalogIndex.serviceGroupByMa = new Map([['T001', '8']]);

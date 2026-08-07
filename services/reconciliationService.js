@@ -6,14 +6,15 @@ const DoctorCatalogMaster = require('../models/DoctorCatalogMaster');
 const ServiceGroupCatalog = require('../models/ServiceGroupCatalog');
 const VatTuCatalogMaster = require('../models/VatTuCatalogMaster');
 const BenefitRateCatalog = require('../models/BenefitRateCatalog');
-const ClaimItem = require('../models/ClaimItem');
-const AnalysisResult = require('../models/AnalysisResult');
+const claimMemoryStore = require('./claimMemoryStore');
+const { checkTheBhxhForBatch } = require('./theBhxhBatchCheck');
 const { reconcileBatch } = require('../reconciliation/reconcileBatch');
 const {
   buildErrorCodeIndex,
   predictErrorCode,
   predictBacSiErrorCode,
   predictNgaySinhErrorCode,
+  predictHoTenErrorCode,
   predictNgayGiuongErrorCode,
   predictKhamTrungLapErrorCode,
   predictNhomDvktErrorCode,
@@ -74,6 +75,11 @@ function buildDuDoanMaLoi(result, errorCodeIndex, ngayYLenh) {
       byMaLoi.set(w.maLoi, w);
     }
   }
+  if (result.hoTenMismatch) {
+    for (const w of predictHoTenErrorCode(errorCodeIndex, ngayYLenh)) {
+      byMaLoi.set(w.maLoi, w);
+    }
+  }
   if (result.ngayGiuongMismatch) {
     for (const w of predictNgayGiuongErrorCode(errorCodeIndex, ngayYLenh)) {
       byMaLoi.set(w.maLoi, w);
@@ -110,7 +116,8 @@ async function runAnalysis(batchId) {
   await batch.save();
 
   try {
-    const claimRows = await ClaimItem.find({ batchId }).lean();
+    // Nội dung hồ sơ (PII) chỉ sống trong bộ nhớ tiến trình — xem claimMemoryStore.js.
+    const claimRows = claimMemoryStore.getClaimItems(batchId);
     const codes = [...new Set(claimRows.map((row) => row.maChiPhi).filter(Boolean))];
 
     const [drugRows, serviceRows, errorCodeRows, doctorRows, serviceGroupRows, vatTuRows, benefitRateRows] =
@@ -137,21 +144,39 @@ async function runAnalysis(batchId) {
     const errorCodeIndex = buildErrorCodeIndex(errorCodeRows);
     const results = reconcileBatch(claimRows, catalogIndex);
 
-    await AnalysisResult.deleteMany({ batchId });
+    // Đối chiếu họ tên/ngày sinh với CSDL thẻ BHYT thật của BHXH (ML011/ML019) — 1 lần
+    // gọi/mã thẻ duy nhất trong batch (dedupe), không chặn cả batch nếu cổng BHXH lỗi
+    // hoặc chưa cấu hình tài khoản (xem theBhxhBatchCheck.js).
+    const theBhxhMismatches = await checkTheBhxhForBatch(claimRows);
 
-    if (results.length > 0) {
-      await AnalysisResult.insertMany(
-        results.map(({ errorRow, result }) => ({
-          batchId,
-          errorRowId: errorRow._id,
+    claimMemoryStore.setAnalysisResults(
+      batchId,
+      results.map(({ errorRow, result }) => {
+        const theMismatch = errorRow.maThe ? theBhxhMismatches.get(errorRow.maThe) : null;
+        const ghiChu = [...result.ghiChu];
+        if (theMismatch?.ngaySinhMismatch) {
+          ghiChu.push(`Cổng BHXH báo sai ngày sinh so với CSDL thẻ BHYT: "${theMismatch.message}"`);
+        }
+        if (theMismatch?.hoTenMismatch) {
+          ghiChu.push(`Cổng BHXH báo sai họ tên so với CSDL thẻ BHYT: "${theMismatch.message}"`);
+        }
+
+        const resultWithBhxh = {
+          ...result,
+          ngaySinhMismatch: Boolean(theMismatch?.ngaySinhMismatch),
+          hoTenMismatch: Boolean(theMismatch?.hoTenMismatch),
+        };
+
+        return {
           ketLuan: result.ketLuan,
           chiTietLech: result.chiTietLech,
           rejectReasonCategory: result.rejectReasonCategory,
-          duDoanMaLoi: buildDuDoanMaLoi(result, errorCodeIndex, errorRow.ngayYLenh),
-          ghiChu: result.ghiChu,
-        }))
-      );
-    }
+          duDoanMaLoi: buildDuDoanMaLoi(resultWithBhxh, errorCodeIndex, errorRow.ngayYLenh),
+          ghiChu,
+          errorRow,
+        };
+      })
+    );
 
     batch.status = 'analyzed';
     batch.analyzedAt = new Date();
@@ -168,103 +193,71 @@ async function runAnalysis(batchId) {
 async function getResults(batchId, filters = {}) {
   await getBatchOrThrow(batchId);
 
-  const match = { batchId };
-  if (filters.ketLuan) match.ketLuan = filters.ketLuan;
+  const results = claimMemoryStore
+    .getAnalysisResults(batchId)
+    .filter((r) => !filters.ketLuan || r.ketLuan === filters.ketLuan)
+    .filter((r) => !filters.maKhoa || r.errorRow?.maKhoa === filters.maKhoa)
+    .filter((r) => !filters.loaiGiamTru || r.errorRow?.loaiGiamTru === filters.loaiGiamTru);
 
-  const results = await AnalysisResult.find(match).populate('errorRowId').lean();
+  return results.map((r) => ({
+    _id: r._id,
+    ketLuan: r.ketLuan,
+    chiTietLech: r.chiTietLech,
+    rejectReasonCategory: r.rejectReasonCategory,
+    duDoanMaLoi: r.duDoanMaLoi,
+    ghiChu: r.ghiChu,
+    errorRow: r.errorRow,
+  }));
+}
 
-  return results
-    .filter((r) => r.errorRowId)
-    .filter((r) => !filters.maKhoa || r.errorRowId.maKhoa === filters.maKhoa)
-    .filter((r) => !filters.loaiGiamTru || r.errorRowId.loaiGiamTru === filters.loaiGiamTru)
-    .map((r) => ({
-      _id: r._id,
-      ketLuan: r.ketLuan,
-      chiTietLech: r.chiTietLech,
-      rejectReasonCategory: r.rejectReasonCategory,
-      duDoanMaLoi: r.duDoanMaLoi,
-      ghiChu: r.ghiChu,
-      errorRow: r.errorRowId,
-    }));
+function monthKeyOf(date) {
+  if (!date) return null;
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 async function getSummary(batchId) {
   await getBatchOrThrow(batchId);
 
-  const [byKetLuan, byKhoa, byMonth, totals] = await Promise.all([
-    AnalysisResult.aggregate([
-      { $match: { batchId } },
-      { $group: { _id: '$ketLuan', count: { $sum: 1 } } },
-    ]),
-    AnalysisResult.aggregate([
-      { $match: { batchId } },
-      {
-        $lookup: {
-          from: 'claimitems',
-          localField: 'errorRowId',
-          foreignField: '_id',
-          as: 'errorRow',
-        },
-      },
-      { $unwind: '$errorRow' },
-      {
-        $group: {
-          _id: '$errorRow.maKhoa',
-          count: { $sum: 1 },
-          tongTienCanhBao: {
-            $sum: {
-              $cond: [{ $eq: ['$ketLuan', KET_LUAN.KHONG_LIEN_QUAN_DANH_MUC] }, 0, { $ifNull: ['$errorRow.deNghi', 0] }],
-            },
-          },
-        },
-      },
-      { $sort: { tongTienCanhBao: -1 } },
-    ]),
-    AnalysisResult.aggregate([
-      { $match: { batchId } },
-      {
-        $lookup: {
-          from: 'claimitems',
-          localField: 'errorRowId',
-          foreignField: '_id',
-          as: 'errorRow',
-        },
-      },
-      { $unwind: '$errorRow' },
-      {
-        $group: {
-          _id: {
-            $dateToString: { format: '%Y-%m', date: '$errorRow.ngayYLenh' },
-          },
-          count: { $sum: 1 },
-          tongTienCanhBao: {
-            $sum: {
-              $cond: [{ $eq: ['$ketLuan', KET_LUAN.KHONG_LIEN_QUAN_DANH_MUC] }, 0, { $ifNull: ['$errorRow.deNghi', 0] }],
-            },
-          },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ]),
-    AnalysisResult.aggregate([
-      { $match: { batchId } },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          soDongCanhBao: { $sum: { $cond: [{ $eq: ['$ketLuan', KET_LUAN.KHONG_LIEN_QUAN_DANH_MUC] }, 0, 1] } },
-        },
-      },
-    ]),
-  ]);
+  const results = claimMemoryStore.getAnalysisResults(batchId);
+
+  const byKetLuan = new Map();
+  const byKhoa = new Map();
+  const byMonth = new Map();
+  let soDongCanhBao = 0;
+
+  for (const r of results) {
+    byKetLuan.set(r.ketLuan, (byKetLuan.get(r.ketLuan) || 0) + 1);
+
+    const isCanhBao = r.ketLuan !== KET_LUAN.KHONG_LIEN_QUAN_DANH_MUC;
+    if (isCanhBao) soDongCanhBao += 1;
+    const tien = isCanhBao ? Number(r.errorRow?.deNghi) || 0 : 0;
+
+    const khoaKey = r.errorRow?.maKhoa || '(không rõ)';
+    const khoa = byKhoa.get(khoaKey) || { count: 0, tongTienCanhBao: 0 };
+    khoa.count += 1;
+    khoa.tongTienCanhBao += tien;
+    byKhoa.set(khoaKey, khoa);
+
+    const thangKey = monthKeyOf(r.errorRow?.ngayYLenh) || '(không rõ)';
+    const thang = byMonth.get(thangKey) || { count: 0, tongTienCanhBao: 0 };
+    thang.count += 1;
+    thang.tongTienCanhBao += tien;
+    byMonth.set(thangKey, thang);
+  }
 
   return {
     batchId,
-    tongSoDong: totals[0]?.count || 0,
-    soDongCanhBao: totals[0]?.soDongCanhBao || 0,
-    theoKetLuan: byKetLuan.map((r) => ({ ketLuan: r._id, count: r.count })),
-    theoKhoa: byKhoa.map((r) => ({ maKhoa: r._id || '(không rõ)', count: r.count, tongTienCanhBao: r.tongTienCanhBao })),
-    theoThang: byMonth.map((r) => ({ thang: r._id || '(không rõ)', count: r.count, tongTienCanhBao: r.tongTienCanhBao })),
+    tongSoDong: results.length,
+    soDongCanhBao,
+    theoKetLuan: [...byKetLuan.entries()].map(([ketLuan, count]) => ({ ketLuan, count })),
+    theoKhoa: [...byKhoa.entries()]
+      .map(([maKhoa, v]) => ({ maKhoa, count: v.count, tongTienCanhBao: v.tongTienCanhBao }))
+      .sort((a, b) => b.tongTienCanhBao - a.tongTienCanhBao),
+    theoThang: [...byMonth.entries()]
+      .map(([thang, v]) => ({ thang, count: v.count, tongTienCanhBao: v.tongTienCanhBao }))
+      .sort((a, b) => (a.thang > b.thang ? 1 : a.thang < b.thang ? -1 : 0)),
   };
 }
 

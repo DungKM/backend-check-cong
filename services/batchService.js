@@ -1,7 +1,5 @@
 const Batch = require('../models/Batch');
-const ClaimItem = require('../models/ClaimItem');
-const ClaimXmlDetail = require('../models/ClaimXmlDetail');
-const AnalysisResult = require('../models/AnalysisResult');
+const claimMemoryStore = require('./claimMemoryStore');
 
 // Severity (Cao/Trung bình/Thấp) is by count of distinct mã lỗi predicted for a row, not
 // by any single mã lỗi's own mucDo — a row hit by more mã lỗi at once is more likely a
@@ -33,19 +31,15 @@ async function getClaimFiles(batchId) {
     return claimFiles.map((f) => ({ ...f, tongCanhBao: 0, mucCao: 0 }));
   }
 
-  const warningCounts = await AnalysisResult.aggregate([
-    { $match: { batchId } },
-    { $lookup: { from: 'claimitems', localField: 'errorRowId', foreignField: '_id', as: 'errorRow' } },
-    { $unwind: '$errorRow' },
-    {
-      $group: {
-        _id: '$errorRow.sourceSheet',
-        tongCanhBao: { $sum: 1 },
-        mucCao: { $sum: { $cond: [{ $gte: [{ $size: '$duDoanMaLoi' }, SEVERITY_THRESHOLDS.cao] }, 1, 0] } },
-      },
-    },
-  ]);
-  const byFileName = new Map(warningCounts.map((w) => [w._id, w]));
+  const byFileName = new Map();
+  for (const r of claimMemoryStore.getAnalysisResults(batchId)) {
+    const fileName = r.errorRow?.sourceSheet;
+    if (!fileName) continue;
+    const entry = byFileName.get(fileName) || { tongCanhBao: 0, mucCao: 0 };
+    entry.tongCanhBao += 1;
+    if ((r.duDoanMaLoi || []).length >= SEVERITY_THRESHOLDS.cao) entry.mucCao += 1;
+    byFileName.set(fileName, entry);
+  }
 
   return claimFiles.map((f) => ({
     ...f,
@@ -73,24 +67,21 @@ function bucketBySeverity(results) {
 // tab's badge, plus the "Danh sách lỗi" count/severity breakdown (AnalysisResult rows
 // tied to this file).
 async function getClaimFileXmlTypes(batchId, fileName) {
-  const [typeCounts, claimItems] = await Promise.all([
-    ClaimXmlDetail.aggregate([
-      { $match: { batchId, fileName } },
-      { $group: { _id: '$xmlType', count: { $sum: 1 } } },
-      { $sort: { _id: 1 } },
-    ]),
-    ClaimItem.find({ batchId, sourceSheet: fileName }, { _id: 1 }).lean(),
-  ]);
+  const typeCounts = new Map();
+  for (const d of claimMemoryStore.getClaimXmlDetails(batchId)) {
+    if (d.fileName !== fileName) continue;
+    typeCounts.set(d.xmlType, (typeCounts.get(d.xmlType) || 0) + 1);
+  }
+  const xmlTypes = [...typeCounts.entries()]
+    .map(([xmlType, count]) => ({ xmlType, count }))
+    .sort((a, b) => (a.xmlType > b.xmlType ? 1 : a.xmlType < b.xmlType ? -1 : 0));
 
-  const results = claimItems.length
-    ? await AnalysisResult.find(
-        { batchId, errorRowId: { $in: claimItems.map((c) => c._id) } },
-        { duDoanMaLoi: 1 }
-      ).lean()
-    : [];
+  const results = claimMemoryStore
+    .getAnalysisResults(batchId)
+    .filter((r) => r.errorRow?.sourceSheet === fileName);
 
   return {
-    xmlTypes: typeCounts.map((t) => ({ xmlType: t._id, count: t.count })),
+    xmlTypes,
     errorCount: results.length,
     warningSummary: { tongCanhBao: results.length, ...bucketBySeverity(results) },
   };
@@ -105,12 +96,9 @@ async function getClaimFileXmlRows(batchId, fileName, xmlType) {
   if (xmlType === 'ERRORS') {
     // Same result shape as reconciliationService.getResults, so the frontend can reuse
     // the existing ResultsTable component for this tab.
-    const claimItemIds = await ClaimItem.find({ batchId, sourceSheet: fileName }, { _id: 1 }).lean();
-    const results = await AnalysisResult.find({ batchId, errorRowId: { $in: claimItemIds.map((c) => c._id) } })
-      .populate('errorRowId')
-      .lean();
-    return results
-      .filter((r) => r.errorRowId)
+    return claimMemoryStore
+      .getAnalysisResults(batchId)
+      .filter((r) => r.errorRow?.sourceSheet === fileName)
       .map((r) => ({
         _id: r._id,
         ketLuan: r.ketLuan,
@@ -118,20 +106,21 @@ async function getClaimFileXmlRows(batchId, fileName, xmlType) {
         rejectReasonCategory: r.rejectReasonCategory,
         duDoanMaLoi: r.duDoanMaLoi,
         ghiChu: r.ghiChu,
-        errorRow: r.errorRowId,
+        errorRow: r.errorRow,
       }));
   }
 
-  const details = await ClaimXmlDetail.find({ batchId, fileName, xmlType }).lean();
+  const details = claimMemoryStore
+    .getClaimXmlDetails(batchId)
+    .filter((d) => d.fileName === fileName && d.xmlType === xmlType);
 
   if (['XML2', 'XML3'].includes(xmlType)) {
-    const flagged = await ClaimItem.aggregate([
-      { $match: { batchId, sourceSheet: fileName, xmlType } },
-      { $lookup: { from: 'analysisresults', localField: '_id', foreignField: 'errorRowId', as: 'flags' } },
-      { $match: { 'flags.0': { $exists: true } } },
-      { $project: { maLK: 1, sttXML: 1 } },
-    ]);
-    const flaggedKeys = new Set(flagged.map((f) => `${f.maLK}|${f.sttXML}`));
+    const flaggedKeys = new Set(
+      claimMemoryStore
+        .getAnalysisResults(batchId)
+        .filter((r) => r.errorRow?.sourceSheet === fileName && r.errorRow?.xmlType === xmlType)
+        .map((r) => `${r.errorRow.maLK}|${r.errorRow.sttXML}`)
+    );
     return details.map((d) => ({ ...d.data, _hasWarning: flaggedKeys.has(`${d.maLK}|${d.sttXML}`) }));
   }
 

@@ -2,7 +2,6 @@ const {
   buildErrorCodeIndex,
   predictErrorCode,
   predictBacSiErrorCode,
-  predictNgaySinhErrorCode,
   predictNgayGiuongErrorCode,
   predictKhamTrungLapErrorCode,
   predictMucHuongDungTuyenErrorCode,
@@ -141,30 +140,6 @@ describe('predictBacSiErrorCode', () => {
     const rows = [errorCodeRow({ maLoi: 'L001', apDungTruong: 'Đơn giá' })];
     const index = buildErrorCodeIndex(rows);
     expect(predictBacSiErrorCode(index)).toEqual([]);
-  });
-});
-
-describe('predictNgaySinhErrorCode', () => {
-  test('untagged mã lỗi whose tên mentions "ngày sinh" matches automatically, unrelated untagged codes do not', () => {
-    const rows = [
-      errorCodeRow({ maLoi: 'ML011', tenLoi: 'Thẻ sai ngày sinh', apDungTruong: '' }),
-      errorCodeRow({ maLoi: 'L999', tenLoi: 'Chung chung', apDungTruong: '' }),
-    ];
-    const index = buildErrorCodeIndex(rows);
-    const result = predictNgaySinhErrorCode(index);
-    expect(result.map((w) => w.maLoi)).toEqual(['ML011']);
-  });
-
-  test('mã lỗi explicitly tagged apDungTruong = NGAY_SINH also matches, even with unrelated tên', () => {
-    const rows = [errorCodeRow({ maLoi: 'L777', tenLoi: 'Sai lệch thông tin cá nhân', apDungTruong: 'NGAY_SINH' })];
-    const index = buildErrorCodeIndex(rows);
-    expect(predictNgaySinhErrorCode(index).map((w) => w.maLoi)).toEqual(['L777']);
-  });
-
-  test('no mã lỗi related to ngày sinh -> empty result', () => {
-    const rows = [errorCodeRow({ maLoi: 'L001', apDungTruong: 'Đơn giá' })];
-    const index = buildErrorCodeIndex(rows);
-    expect(predictNgaySinhErrorCode(index)).toEqual([]);
   });
 });
 
