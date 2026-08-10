@@ -6,6 +6,7 @@ const {
   BAC_SI_KEYWORDS,
   NGAY_SINH_KEYWORDS,
   HO_TEN_KEYWORDS,
+  GIOI_TINH_KEYWORDS,
   NGAY_GIUONG_KEYWORDS,
   KHAM_TRUNG_LAP_KEYWORDS,
   NHOM_DVKT_KEYWORDS,
@@ -139,6 +140,10 @@ function predictHoTenErrorCode(errorCodeIndex, ngayYLenh) {
   return predictByFieldOrKeyword(errorCodeIndex, ngayYLenh, MA_LOI_AP_DUNG_TRUONG.HO_TEN, HO_TEN_KEYWORDS);
 }
 
+function predictGioiTinhErrorCode(errorCodeIndex, ngayYLenh) {
+  return predictByFieldOrKeyword(errorCodeIndex, ngayYLenh, MA_LOI_AP_DUNG_TRUONG.GIOI_TINH, GIOI_TINH_KEYWORDS);
+}
+
 function predictNgayGiuongErrorCode(errorCodeIndex, ngayYLenh) {
   return predictByFieldOrKeyword(errorCodeIndex, ngayYLenh, MA_LOI_AP_DUNG_TRUONG.NGAY_GIUONG, NGAY_GIUONG_KEYWORDS);
 }
@@ -175,6 +180,7 @@ module.exports = {
   predictBacSiErrorCode,
   predictNgaySinhErrorCode,
   predictHoTenErrorCode,
+  predictGioiTinhErrorCode,
   predictNgayGiuongErrorCode,
   predictKhamTrungLapErrorCode,
   predictNhomDvktErrorCode,

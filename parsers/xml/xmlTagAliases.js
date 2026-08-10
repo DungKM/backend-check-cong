@@ -17,6 +17,9 @@ const XML1_ALIASES = {
   ngayRa: ['NGAY_RA'],
   maKhoa: ['MA_KHOA'],
   ngaySinh: ['NGAY_SINH'],
+  // Mã số theo XML4210: "1" = Nam, "2" = Nữ — dùng để đối chiếu với "gioiTinh" (dạng
+  // chữ "Nam"/"Nữ") trả về từ cổng BHXH thật (ML020), xem bhxhEgwService.js.
+  gioiTinh: ['GIOI_TINH'],
   soCCCD: ['SO_CCCD'],
   soNgayDieuTri: ['SO_NGAY_DTRI'],
   ngayVaoNoiTru: ['NGAY_VAO_NOI_TRU'],

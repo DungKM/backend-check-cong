@@ -2,12 +2,6 @@ const { asyncHandler } = require('../utils/asyncHandler');
 const batchService = require('../services/batchService');
 const exportService = require('../services/exportService');
 
-const listBatches = asyncHandler(async (req, res) => {
-  const { page, pageSize } = req.query;
-  const result = await batchService.listBatches({ page: Number(page) || 1, pageSize: Number(pageSize) || 20 });
-  res.json(result);
-});
-
 const getClaimFiles = asyncHandler(async (req, res) => {
   const result = await batchService.getClaimFiles(req.params.batchId);
   if (!result) return res.status(404).json({ message: `Không tìm thấy đợt đối chiếu: ${req.params.batchId}` });
@@ -33,4 +27,4 @@ const exportClaimFileErrors = asyncHandler(async (req, res) => {
   res.send(Buffer.from(buffer));
 });
 
-module.exports = { listBatches, getClaimFiles, getClaimFileXmlTypes, getClaimFileXmlRows, exportClaimFileErrors };
+module.exports = { getClaimFiles, getClaimFileXmlTypes, getClaimFileXmlRows, exportClaimFileErrors };

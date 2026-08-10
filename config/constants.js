@@ -59,6 +59,11 @@ const MA_LOI_AP_DUNG_TRUONG = {
   // như trước (đã bỏ vì sai bản chất).
   NGAY_SINH: 'NGAY_SINH',
   HO_TEN: 'HO_TEN',
+  // Thẻ sai giới tính so với CSDL thẻ BHYT thật của BHXH (ML020) — cùng cơ chế đối
+  // chiếu qua API cổng BHXH như NGAY_SINH/HO_TEN, nhưng API không nhận giới tính làm
+  // input để BHXH tự validate, nên phải tự so response.gioiTinh với GIOI_TINH khai
+  // trên XML (xem bhxhEgwService.js).
+  GIOI_TINH: 'GIOI_TINH',
   NGAY_GIUONG: 'NGAY_GIUONG',
   KHAM_TRUNG_LAP: 'KHAM_TRUNG_LAP',
   NHOM_DVKT: 'NHOM_DVKT',
@@ -119,6 +124,7 @@ const BAC_SI_KEYWORDS = ['ma bac si'];
 // theBhxhBatchCheck.js), không phải suy đoán trong dữ liệu offline.
 const NGAY_SINH_KEYWORDS = ['ngay sinh'];
 const HO_TEN_KEYWORDS = ['sai ho ten', 'ho ten'];
+const GIOI_TINH_KEYWORDS = ['gioi tinh'];
 
 // Same auto-detect role as BAC_SI_KEYWORDS above, for "thanh toán ngày giường sai quy
 // định" mã lỗi rows.
@@ -187,6 +193,7 @@ module.exports = {
   BAC_SI_KEYWORDS,
   NGAY_SINH_KEYWORDS,
   HO_TEN_KEYWORDS,
+  GIOI_TINH_KEYWORDS,
   NGAY_GIUONG_KEYWORDS,
   KHAM_TRUNG_LAP_KEYWORDS,
   NHOM_DVKT_KEYWORDS,

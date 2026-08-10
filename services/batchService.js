@@ -6,15 +6,6 @@ const claimMemoryStore = require('./claimMemoryStore');
 // real, serious mismatch than one hit by just one.
 const SEVERITY_THRESHOLDS = { cao: 3, trungBinh: 2, thap: 1 };
 
-async function listBatches({ page = 1, pageSize = 20 } = {}) {
-  const skip = (Math.max(1, page) - 1) * pageSize;
-  const [items, total] = await Promise.all([
-    Batch.find().sort({ createdAt: -1 }).skip(skip).limit(pageSize).lean(),
-    Batch.countDocuments(),
-  ]);
-  return { items, total, page: Number(page), pageSize: Number(pageSize) };
-}
-
 async function getBatch(batchId) {
   return Batch.findOne({ batchId }).lean();
 }
@@ -127,4 +118,4 @@ async function getClaimFileXmlRows(batchId, fileName, xmlType) {
   return details.map((d) => d.data);
 }
 
-module.exports = { listBatches, getBatch, getClaimFiles, getClaimFileXmlTypes, getClaimFileXmlRows };
+module.exports = { getBatch, getClaimFiles, getClaimFileXmlTypes, getClaimFileXmlRows };

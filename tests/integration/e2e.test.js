@@ -287,12 +287,4 @@ describe('End-to-end reconciliation flow', () => {
     expect(res.body.length).toBeGreaterThan(0);
   });
 
-  test('lists the batch in GET /api/batches', async () => {
-    const res = await request(app).get('/api/batches').set('Authorization', `Bearer ${token}`);
-    expect(res.status).toBe(200);
-    expect(res.body.items.some((b) => b.batchId === batchId)).toBe(true);
-    const batch = res.body.items.find((b) => b.batchId === batchId);
-    expect(batch.status).toBe('analyzed');
-    expect(batch.rowCounts.claimRows).toBe(3);
-  });
 });

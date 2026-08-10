@@ -15,6 +15,7 @@ const {
   predictBacSiErrorCode,
   predictNgaySinhErrorCode,
   predictHoTenErrorCode,
+  predictGioiTinhErrorCode,
   predictNgayGiuongErrorCode,
   predictKhamTrungLapErrorCode,
   predictNhomDvktErrorCode,
@@ -77,6 +78,11 @@ function buildDuDoanMaLoi(result, errorCodeIndex, ngayYLenh) {
   }
   if (result.hoTenMismatch) {
     for (const w of predictHoTenErrorCode(errorCodeIndex, ngayYLenh)) {
+      byMaLoi.set(w.maLoi, w);
+    }
+  }
+  if (result.gioiTinhMismatch) {
+    for (const w of predictGioiTinhErrorCode(errorCodeIndex, ngayYLenh)) {
       byMaLoi.set(w.maLoi, w);
     }
   }
@@ -144,9 +150,10 @@ async function runAnalysis(batchId) {
     const errorCodeIndex = buildErrorCodeIndex(errorCodeRows);
     const results = reconcileBatch(claimRows, catalogIndex);
 
-    // Đối chiếu họ tên/ngày sinh với CSDL thẻ BHYT thật của BHXH (ML011/ML019) — 1 lần
-    // gọi/mã thẻ duy nhất trong batch (dedupe), không chặn cả batch nếu cổng BHXH lỗi
-    // hoặc chưa cấu hình tài khoản (xem theBhxhBatchCheck.js).
+    // Đối chiếu họ tên/ngày sinh/giới tính với CSDL thẻ BHYT thật của BHXH
+    // (ML011/ML019/ML020) — 1 lần gọi/mã thẻ duy nhất trong batch (dedupe), không
+    // chặn cả batch nếu cổng BHXH lỗi hoặc chưa cấu hình tài khoản (xem
+    // theBhxhBatchCheck.js).
     const theBhxhMismatches = await checkTheBhxhForBatch(claimRows);
 
     claimMemoryStore.setAnalysisResults(
@@ -160,11 +167,15 @@ async function runAnalysis(batchId) {
         if (theMismatch?.hoTenMismatch) {
           ghiChu.push(`Cổng BHXH báo sai họ tên so với CSDL thẻ BHYT: "${theMismatch.message}"`);
         }
+        if (theMismatch?.gioiTinhMismatch) {
+          ghiChu.push(`Cổng BHXH báo sai giới tính so với CSDL thẻ BHYT: "${theMismatch.message}"`);
+        }
 
         const resultWithBhxh = {
           ...result,
           ngaySinhMismatch: Boolean(theMismatch?.ngaySinhMismatch),
           hoTenMismatch: Boolean(theMismatch?.hoTenMismatch),
+          gioiTinhMismatch: Boolean(theMismatch?.gioiTinhMismatch),
         };
 
         return {

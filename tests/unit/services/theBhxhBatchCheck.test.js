@@ -9,6 +9,7 @@ function row(overrides) {
     hoTen: 'Nguyen Van A',
     soCCCD: '001054010978',
     ngaySinh: new Date('1954-03-28'),
+    gioiTinh: '1',
     ...overrides,
   };
 }
@@ -59,6 +60,22 @@ describe('checkTheBhxhForBatch', () => {
     });
   });
 
+  test('BHXH báo sai giới tính -> ghi vào map theo mã thẻ, truyền gioiTinh của XML để so sánh', async () => {
+    bhxhEgwService.hasCredentials.mockReturnValue(true);
+    bhxhEgwService.checkThe.mockResolvedValue({ gioiTinh: 'Nữ' });
+    bhxhEgwService.interpretCheckTheResponse.mockReturnValue({
+      ngaySinhMismatch: false,
+      hoTenMismatch: false,
+      gioiTinhMismatch: true,
+      message: '',
+    });
+
+    const result = await checkTheBhxhForBatch([row({ gioiTinh: '1' })]);
+
+    expect(bhxhEgwService.interpretCheckTheResponse).toHaveBeenCalledWith({ gioiTinh: 'Nữ' }, '1');
+    expect(result.get('TC3010124582880').gioiTinhMismatch).toBe(true);
+  });
+
   test('khớp CSDL (không mismatch) -> không có entry trong map', async () => {
     bhxhEgwService.hasCredentials.mockReturnValue(true);
     bhxhEgwService.checkThe.mockResolvedValue({});
@@ -91,11 +108,29 @@ describe('checkTheBhxhForBatch', () => {
     expect(bhxhEgwService.checkThe).toHaveBeenCalledTimes(2);
   });
 
-  test('thiếu ngaySinh/hoTen/soCCCD -> bỏ qua mã thẻ đó, không gọi API', async () => {
+  test('thiếu ngaySinh/hoTen -> bỏ qua mã thẻ đó, không gọi API', async () => {
     bhxhEgwService.hasCredentials.mockReturnValue(true);
+
+    await checkTheBhxhForBatch([row({ hoTen: '' })]);
+
+    expect(bhxhEgwService.checkThe).not.toHaveBeenCalled();
+  });
+
+  test('thiếu soCCCD của bệnh nhân KHÔNG chặn gọi API (cccdCb lấy từ env, không phải từ bệnh nhân)', async () => {
+    bhxhEgwService.hasCredentials.mockReturnValue(true);
+    bhxhEgwService.checkThe.mockResolvedValue({});
+    bhxhEgwService.interpretCheckTheResponse.mockReturnValue({
+      ngaySinhMismatch: false,
+      hoTenMismatch: false,
+      message: '',
+    });
 
     await checkTheBhxhForBatch([row({ soCCCD: '' })]);
 
-    expect(bhxhEgwService.checkThe).not.toHaveBeenCalled();
+    expect(bhxhEgwService.checkThe).toHaveBeenCalledWith({
+      maThe: 'TC3010124582880',
+      ngaySinh: '28/03/1954',
+      hoTen: 'Nguyen Van A',
+    });
   });
 });
