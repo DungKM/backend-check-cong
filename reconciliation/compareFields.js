@@ -20,6 +20,7 @@ const DRUG_FIELD_LABELS = {
   donViTinh: CHI_TIET_LECH_TRUONG.DON_VI_TINH,
   hamLuong: CHI_TIET_LECH_TRUONG.HAM_LUONG,
   soDangKy: CHI_TIET_LECH_TRUONG.SO_DANG_KY,
+  ttThau: CHI_TIET_LECH_TRUONG.TT_THAU,
 };
 
 function compareDrugFields(errorRow, catalogRow) {

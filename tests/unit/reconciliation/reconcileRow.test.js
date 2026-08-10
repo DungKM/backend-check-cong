@@ -86,6 +86,56 @@ describe('reconcileRow', () => {
     expect(result.ketLuan).toBe('LECH_DU_LIEU');
   });
 
+  test('nhiều dòng cùng mã thuốc khác Số đăng ký -> chọn đúng dòng khớp Số đăng ký trên hồ sơ, không báo lệch giả', () => {
+    // Cùng mã thuốc "T001" nhưng 2 đợt thầu khác nhau -> 2 số đăng ký khác nhau, cả
+    // hai đều còn hiệu lực tại ngayYLenh. Nếu chỉ lọc theo ngày (bỏ qua Số đăng ký),
+    // logic tie-break cũ sẽ chọn dòng tuNgay mới nhất (drugB, VD-99999-20) và báo lệch
+    // Số đăng ký giả dù hồ sơ thực ra khớp đúng drugA.
+    const drugA = { ...baseDrug, soDangKy: 'VD-12345-19', tuNgay: d('2024-01-01'), denNgay: d('2024-12-31') };
+    const drugB = { ...baseDrug, soDangKy: 'VD-99999-20', tuNgay: d('2024-06-01'), denNgay: d('2024-12-31') };
+    const catalogIndex = buildCatalogIndex({ drugs: [drugA, drugB] });
+    const errorRow = { ...baseErrorRow, soDangKy: 'VD-12345-19', ngayYLenh: d('2024-07-01') };
+    const result = reconcileRow(errorRow, catalogIndex);
+    expect(result.ketLuan).toBe('KHONG_LIEN_QUAN_DANH_MUC');
+    expect(result.chiTietLech).toEqual([]);
+    expect(result.ghiChu.some((g) => g.includes('Số đăng ký'))).toBe(true);
+  });
+
+  test('cùng mã thuốc + cùng Số đăng ký nhưng khác TT_THAU (đợt thầu khác giá) -> chọn đúng dòng theo TT_THAU trên hồ sơ', () => {
+    // Giống tình huống thực tế: 1 số đăng ký có thể trúng thầu nhiều đợt (TT_THAU
+    // khác nhau), mỗi đợt giá khác nhau. Không lọc theo TT_THAU sẽ chọn nhầm đợt
+    // thầu có tuNgay mới nhất (drugB, đơn giá 987) và báo lệch Đơn giá giả dù hồ sơ
+    // khai đúng đơn giá của đợt thầu TT01 (drugA).
+    const drugA = { ...baseDrug, ttThau: 'TT01', donGiaBH: 1050, tuNgay: d('2024-01-01'), denNgay: d('2024-12-31') };
+    const drugB = { ...baseDrug, ttThau: 'TT02', donGiaBH: 987, tuNgay: d('2024-06-01'), denNgay: d('2024-12-31') };
+    const catalogIndex = buildCatalogIndex({ drugs: [drugA, drugB] });
+    const errorRow = { ...baseErrorRow, ttThau: 'TT01', donGia: 1050, ngayYLenh: d('2024-07-01') };
+    const result = reconcileRow(errorRow, catalogIndex);
+    expect(result.ketLuan).toBe('KHONG_LIEN_QUAN_DANH_MUC');
+    expect(result.chiTietLech).toEqual([]);
+    expect(result.ghiChu.some((g) => g.includes('TT_THAU'))).toBe(true);
+  });
+
+  test('TT_THAU trên hồ sơ không khớp dòng nào cùng mã thuốc -> ghi chú cảnh báo + vẫn báo lệch', () => {
+    const drugA = { ...baseDrug, ttThau: 'TT01', donGiaBH: 1050 };
+    const drugB = { ...baseDrug, ttThau: 'TT02', donGiaBH: 987 };
+    const catalogIndex = buildCatalogIndex({ drugs: [drugA, drugB] });
+    const errorRow = { ...baseErrorRow, ttThau: 'TT99', donGia: 1050 };
+    const result = reconcileRow(errorRow, catalogIndex);
+    expect(result.ghiChu.some((g) => g.includes('TT_THAU') && g.includes('không khớp'))).toBe(true);
+  });
+
+  test('Số đăng ký trên hồ sơ không khớp dòng nào cùng mã thuốc -> ghi chú cảnh báo + vẫn báo lệch Số đăng ký', () => {
+    const drugA = { ...baseDrug, soDangKy: 'VD-12345-19' };
+    const drugB = { ...baseDrug, soDangKy: 'VD-99999-20' };
+    const catalogIndex = buildCatalogIndex({ drugs: [drugA, drugB] });
+    const errorRow = { ...baseErrorRow, soDangKy: 'VD-00000-99' };
+    const result = reconcileRow(errorRow, catalogIndex);
+    expect(result.ketLuan).toBe('LECH_DU_LIEU');
+    expect(result.chiTietLech.some((c) => c.truong === 'Số đăng ký')).toBe(true);
+    expect(result.ghiChu.some((g) => g.includes('không khớp'))).toBe(true);
+  });
+
   test('unclassifiable loaiChiPhi falls back gracefully to whichever catalog has the code', () => {
     const catalogIndex = buildCatalogIndex({ drugs: [baseDrug] });
     const errorRow = { ...baseErrorRow, loaiChiPhi: 'Không rõ loại' };

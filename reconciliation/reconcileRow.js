@@ -1,5 +1,5 @@
 const { classifyChiPhi } = require('./classifyChiPhi');
-const { findValidCatalogRow } = require('./matchCatalogRow');
+const { findValidCatalogRow, narrowDrugCandidates } = require('./matchCatalogRow');
 const { compareDrugFields, compareServiceFields, compareVatTuFields } = require('./compareFields');
 const { classifyRejectReason } = require('./classifyRejectReason');
 const { checkBacSi } = require('./checkBacSi');
@@ -9,23 +9,36 @@ const { KET_LUAN, LOAI_CHI_PHI, REJECT_REASON_CATEGORY } = require('../config/co
 
 function pickCandidateSetForRow(errorRow, catalogIndex) {
   const loai = classifyChiPhi(errorRow.loaiChiPhi);
+
+  // Xem narrowDrugCandidates() — cùng mã thuốc có thể có nhiều dòng khác Số đăng
+  // ký/TT_THAU, nên thu hẹp về đúng dòng trên hồ sơ trước khi lọc theo ngày hiệu lực.
+  const drugCandidatesRaw = catalogIndex.drugByCode.get(errorRow.maChiPhi) || [];
+  const { candidates: drugCandidates, ghiChu: drugGhiChu } = narrowDrugCandidates(
+    drugCandidatesRaw,
+    errorRow
+  );
+
   const byLoai = {
     [LOAI_CHI_PHI.THUOC]: {
-      candidates: catalogIndex.drugByCode.get(errorRow.maChiPhi) || [],
+      candidates: drugCandidates,
       compareFn: compareDrugFields,
+      ghiChu: drugGhiChu,
     },
     [LOAI_CHI_PHI.DICH_VU]: {
       candidates: catalogIndex.serviceByCode.get(errorRow.maChiPhi) || [],
       compareFn: compareServiceFields,
+      ghiChu: [],
     },
     [LOAI_CHI_PHI.VAT_TU]: {
       candidates: (catalogIndex.vatTuByCode || new Map()).get(errorRow.maChiPhi) || [],
       compareFn: compareVatTuFields,
+      ghiChu: [],
     },
   };
 
   if (byLoai[loai]) {
-    return { ...byLoai[loai], ghiChu: [], loai };
+    const { candidates, compareFn, ghiChu } = byLoai[loai];
+    return { candidates, compareFn, ghiChu, loai };
   }
 
   // "Loại chi phí" text didn't match a known keyword — fall back to whichever
@@ -44,7 +57,7 @@ function pickCandidateSetForRow(errorRow, catalogIndex) {
   if (!picked) {
     return { candidates: [], compareFn: compareDrugFields, ghiChu, loai };
   }
-  return { ...byLoai[picked], ghiChu, loai: picked };
+  return { ...byLoai[picked], ghiChu: [...ghiChu, ...byLoai[picked].ghiChu], loai: picked };
 }
 
 function pickWithoutDateFilter(candidates) {

@@ -40,6 +40,7 @@ const CHI_TIET_LECH_TRUONG = {
   HAM_LUONG: 'Hàm lượng',
   DON_VI_TINH: 'Đơn vị tính',
   SO_DANG_KY: 'Số đăng ký',
+  TT_THAU: 'TT thầu',
   TEN_DICH_VU: 'Tên dịch vụ',
   TEN_VAT_TU: 'Tên vật tư',
 };
