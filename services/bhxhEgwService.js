@@ -3,11 +3,11 @@ const { logger } = require('../utils/logger');
 
 // Client cho cổng "egw.baohiemxahoi.gov.vn" — dùng để đối chiếu họ tên/ngày sinh
 // trên hồ sơ với CSDL quản lý thẻ BHYT thật của BHXHVN (thay cho suy đoán qua CCCD,
-// đã bỏ vì sai bản chất). Tài khoản/mật khẩu và họ tên/CCCD người tra cứu (cán bộ) là
-// thông tin thật của bệnh viện với cổng nhà nước — LUÔN đọc từ biến môi trường
-// (BHXH_EGW_*), không hard-code, không log ra console/response lỗi.
-const TOKEN_URL = 'https://egw.baohiemxahoi.gov.vn/api/token/take';
-const CHECK_URL = 'https://egw.baohiemxahoi.gov.vn/api/egw/KQNhanLichSuKCB2024';
+// đã bỏ vì sai bản chất). Tài khoản/mật khẩu, họ tên/CCCD người tra cứu (cán bộ), VÀ
+// URL của cổng (BHXH_EGW_TOKEN_URL/BHXH_EGW_CHECK_URL) đều LUÔN đọc từ biến môi
+// trường (BHXH_EGW_*), không hard-code trong source — tránh lộ đường dẫn thật của
+// cổng nhà nước ra git/code, và cho phép đổi sang URL sandbox/khác mà không sửa code.
+// Không log ra console/response lỗi.
 
 // Cache token trong bộ nhớ tiến trình (mất khi restart server). Response có
 // "expires_in" (timestamp hết hạn) nhưng chiến lược ở đây vẫn đơn giản: dùng lại
@@ -27,14 +27,16 @@ function requireCredentials() {
   const password = process.env.BHXH_EGW_PASSWORD;
   const hotenCb = process.env.BHXH_EGW_HOTENCB;
   const cccdCb = process.env.BHXH_EGW_CCCDCB;
-  if (!username || !password || !hotenCb || !cccdCb) {
+  const tokenUrl = process.env.BHXH_EGW_TOKEN_URL;
+  const checkUrl = process.env.BHXH_EGW_CHECK_URL;
+  if (!username || !password || !hotenCb || !cccdCb || !tokenUrl || !checkUrl) {
     const err = new Error(
-      'Chưa cấu hình đủ BHXH_EGW_USERNAME/BHXH_EGW_PASSWORD/BHXH_EGW_HOTENCB/BHXH_EGW_CCCDCB trên server'
+      'Chưa cấu hình đủ BHXH_EGW_USERNAME/BHXH_EGW_PASSWORD/BHXH_EGW_HOTENCB/BHXH_EGW_CCCDCB/BHXH_EGW_TOKEN_URL/BHXH_EGW_CHECK_URL trên server'
     );
     err.status = 500;
     throw err;
   }
-  return { username, password, hotenCb, cccdCb };
+  return { username, password, hotenCb, cccdCb, tokenUrl, checkUrl };
 }
 
 // Cho phép caller (theBhxhBatchCheck.js) kiểm tra trước khi vào vòng lặp gọi API,
@@ -44,7 +46,9 @@ function hasCredentials() {
     process.env.BHXH_EGW_USERNAME &&
       process.env.BHXH_EGW_PASSWORD &&
       process.env.BHXH_EGW_HOTENCB &&
-      process.env.BHXH_EGW_CCCDCB
+      process.env.BHXH_EGW_CCCDCB &&
+      process.env.BHXH_EGW_TOKEN_URL &&
+      process.env.BHXH_EGW_CHECK_URL
   );
 }
 
@@ -53,9 +57,9 @@ function sleep(ms) {
 }
 
 async function takeToken() {
-  const { username, password } = requireCredentials();
+  const { username, password, tokenUrl } = requireCredentials();
 
-  const response = await fetch(TOKEN_URL, {
+  const response = await fetch(tokenUrl, {
     method: 'POST',
     // "Connection: close" ép Node đóng socket sau response thay vì giữ lại trong
     // connection pool để tái dùng — cổng BHXH có vẻ tự đóng các socket keep-alive
@@ -82,7 +86,7 @@ async function takeToken() {
 }
 
 async function callCheckThe(body) {
-  const { password } = requireCredentials();
+  const { password, checkUrl } = requireCredentials();
   const params = new URLSearchParams({
     id_token: cachedToken.idToken,
     username: cachedToken.username,
@@ -94,7 +98,7 @@ async function callCheckThe(body) {
   // định của curl trong trường hợp đó là POST, nên ví dụ "GET" thực chất đang chạy
   // POST. Dùng POST cho khớp với ví dụ đã xác nhận hoạt động; nếu server thực sự
   // yêu cầu đúng verb GET (ít gặp với body JSON) thì đổi lại ở đây.
-  return fetch(`${CHECK_URL}?${params.toString()}`, {
+  return fetch(`${checkUrl}?${params.toString()}`, {
     method: 'POST',
     // Xem giải thích "Connection: close" ở takeToken().
     headers: { 'Content-Type': 'application/json', Connection: 'close' },

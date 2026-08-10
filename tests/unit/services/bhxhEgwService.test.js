@@ -12,6 +12,8 @@ describe('hasCredentials', () => {
     process.env.BHXH_EGW_PASSWORD = 'pass';
     process.env.BHXH_EGW_HOTENCB = 'Nguyen Van Hung';
     process.env.BHXH_EGW_CCCDCB = '001087019089';
+    process.env.BHXH_EGW_TOKEN_URL = 'https://egw.example.gov.vn/api/token/take';
+    process.env.BHXH_EGW_CHECK_URL = 'https://egw.example.gov.vn/api/egw/KQNhanLichSuKCB2024';
   }
 
   test('có đủ username/password/hotenCb/cccdCb -> true', () => {
@@ -119,6 +121,8 @@ describe('checkThe — tự lấy lại token khi gặp lỗi (401/403 hoặc l�
     process.env.BHXH_EGW_PASSWORD = 'pass';
     process.env.BHXH_EGW_HOTENCB = 'Nguyen Van Hung';
     process.env.BHXH_EGW_CCCDCB = '001087019089';
+    process.env.BHXH_EGW_TOKEN_URL = 'https://egw.example.gov.vn/api/token/take';
+    process.env.BHXH_EGW_CHECK_URL = 'https://egw.example.gov.vn/api/egw/KQNhanLichSuKCB2024';
   });
 
   afterEach(() => {
