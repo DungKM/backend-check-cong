@@ -32,6 +32,11 @@ const batchSchema = new mongoose.Schema({
     serviceRows: { type: Number, default: 0 },
     claimRows: { type: Number, default: 0 },
   },
+  analysisSummary: {
+    totalRows: { type: Number, default: 0 },
+    warningRows: { type: Number, default: 0 },
+    savedAmount: { type: Number, default: 0 },
+  },
   status: {
     type: String,
     enum: ['uploaded', 'analyzing', 'analyzed', 'failed'],

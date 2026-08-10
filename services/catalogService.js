@@ -7,6 +7,7 @@ const ServiceGroupCatalog = require('../models/ServiceGroupCatalog');
 const VatTuCatalogMaster = require('../models/VatTuCatalogMaster');
 const BenefitRateCatalog = require('../models/BenefitRateCatalog');
 const CatalogImport = require('../models/CatalogImport');
+const { escapeRegExp } = require('../utils/escapeRegExp');
 const { parseDrugCatalogWorkbook } = require('../parsers/drugCatalogParser');
 const { parseServiceCatalogWorkbook } = require('../parsers/serviceCatalogParser');
 const { parseErrorCodeCatalogWorkbook } = require('../parsers/errorCodeCatalogParser');
@@ -191,6 +192,15 @@ const CATALOG_CONFIG = {
   },
 };
 
+// Số dòng hiện có của mỗi loại danh mục — dùng cho trang "Tổng quan" để nhìn nhanh
+// độ đầy của toàn bộ danh mục mà không phải mở từng trang riêng.
+async function getCatalogCounts() {
+  const entries = await Promise.all(
+    Object.entries(CATALOG_CONFIG).map(async ([type, config]) => [type, await config.model.countDocuments()])
+  );
+  return Object.fromEntries(entries);
+}
+
 function getConfigOrThrow(type) {
   const config = CATALOG_CONFIG[type];
   if (!config) throw new BadRequestError(`Loại danh mục không hợp lệ: ${type}`);
@@ -326,7 +336,7 @@ async function listCatalog({ type, q, page = 1, pageSize = 20, activeOn }) {
   const filter = {};
 
   if (q) {
-    const regex = new RegExp(q.trim(), 'i');
+    const regex = new RegExp(escapeRegExp(q.trim()), 'i');
     filter.$or = config.searchFields.map((field) => ({ [field]: regex }));
   }
 
@@ -434,6 +444,7 @@ module.exports = {
   updateItem,
   deleteItem,
   generateTemplate,
+  getCatalogCounts,
   NotFoundError,
   BadRequestError,
 };

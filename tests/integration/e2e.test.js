@@ -20,6 +20,7 @@ beforeAll(async () => {
 
   const passwordHash = await bcrypt.hash('123456', 10);
   await User.create({ username: 'admin', passwordHash, role: 'admin' });
+  await User.create({ username: 'nhanvien', passwordHash, role: 'staff' });
 }, 60000);
 
 afterAll(async () => {
@@ -119,6 +120,35 @@ describe('End-to-end reconciliation flow', () => {
     const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body.user.username).toBe('admin');
+  });
+
+  test('staff can log in and read catalogs, but cannot write to them (admin-only)', async () => {
+    const loginRes = await request(app).post('/api/auth/login').send({ username: 'nhanvien', password: '123456' });
+    expect(loginRes.status).toBe(200);
+    const staffToken = loginRes.body.token;
+
+    const readRes = await request(app).get('/api/catalogs/service').set('Authorization', `Bearer ${staffToken}`);
+    expect(readRes.status).toBe(200);
+
+    const createRes = await request(app)
+      .post('/api/catalogs/service')
+      .set('Authorization', `Bearer ${staffToken}`)
+      .send({ maTuongDuong: 'HACK', tenDvktPheDuyet: 'Không được phép', donGia: 1, tuNgay: '2024-01-01' });
+    expect(createRes.status).toBe(403);
+
+    const importRes = await request(app)
+      .post('/api/catalogs/drug/import')
+      .set('Authorization', `Bearer ${staffToken}`)
+      .attach('file', await buildDrugCatalogWorkbook(), 'x.xlsx');
+    expect(importRes.status).toBe(403);
+  });
+
+  test('rejects a NoSQL-operator batchId instead of treating it as a Mongo query operator', async () => {
+    const res = await request(app)
+      .post('/api/analyze')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ batchId: { $ne: null } });
+    expect(res.status).toBe(400);
   });
 
   test('imports drug and service master catalogs (persistent, not batch-scoped)', async () => {
@@ -260,6 +290,27 @@ describe('End-to-end reconciliation flow', () => {
     expect(res.body.soDongCanhBao).toBe(2); // BN002 (lệch) + BN003 (không tìm thấy)
     expect(res.body.theoKetLuan.length).toBeGreaterThan(0);
     expect(res.body.theoKhoa.length).toBeGreaterThan(0);
+  });
+
+  test('overview rolls up saved amount and warning metrics from analyzed batches', async () => {
+    const res = await request(app)
+      .get('/api/stats/overview')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.totalBatches).toBe(1);
+    expect(res.body.daDoiChieu).toBe(1);
+    expect(res.body.dangXuLy).toBe(0);
+    expect(res.body.thatBai).toBe(0);
+    expect(res.body.tongSoDongDaCheck).toBe(3);
+    expect(res.body.tongDongCanhBao).toBe(2);
+    expect(res.body.tongTienTietKiem).toBe(80000);
+    expect(res.body.tyLeHoanTat).toBeCloseTo(1);
+    expect(res.body.tyLeCanhBao).toBeCloseTo(2 / 3);
+    expect(res.body.tietKiemTrungBinhMoiDot).toBe(80000);
+    expect(res.body.soDotCoDuLieuChiPhi).toBe(1);
+    expect(res.body.soDotThieuDuLieuChiPhi).toBe(0);
+    expect(res.body.recentBatches).toHaveLength(1);
+    expect(res.body.recentBatches[0].analysisSummary.savedAmount).toBe(80000);
   });
 
   test('filters results by ketLuan', async () => {

@@ -119,6 +119,7 @@ async function runAnalysis(batchId) {
   const batch = await getBatchOrThrow(batchId);
 
   batch.status = 'analyzing';
+  batch.analysisSummary = { totalRows: 0, warningRows: 0, savedAmount: 0 };
   await batch.save();
 
   try {
@@ -190,12 +191,14 @@ async function runAnalysis(batchId) {
     );
 
     batch.status = 'analyzed';
+    batch.analysisSummary = buildAnalysisSummary(claimMemoryStore.getAnalysisResults(batchId));
     batch.analyzedAt = new Date();
     await batch.save();
 
     return { batchId, rowCount: results.length };
   } catch (err) {
     batch.status = 'failed';
+    batch.analysisSummary = { totalRows: 0, warningRows: 0, savedAmount: 0 };
     await batch.save();
     throw err;
   }
@@ -228,22 +231,46 @@ function monthKeyOf(date) {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+function isWarningConclusion(ketLuan) {
+  return ketLuan !== KET_LUAN.KHONG_LIEN_QUAN_DANH_MUC;
+}
+
+function getSavedAmountOfResult(result) {
+  if (!isWarningConclusion(result.ketLuan)) return 0;
+  return Number(result.errorRow?.deNghi) || 0;
+}
+
+function buildAnalysisSummary(results) {
+  let warningRows = 0;
+  let savedAmount = 0;
+
+  for (const result of results) {
+    if (!isWarningConclusion(result.ketLuan)) continue;
+    warningRows += 1;
+    savedAmount += getSavedAmountOfResult(result);
+  }
+
+  return {
+    totalRows: results.length,
+    warningRows,
+    savedAmount,
+  };
+}
+
 async function getSummary(batchId) {
   await getBatchOrThrow(batchId);
 
   const results = claimMemoryStore.getAnalysisResults(batchId);
+  const analysisSummary = buildAnalysisSummary(results);
 
   const byKetLuan = new Map();
   const byKhoa = new Map();
   const byMonth = new Map();
-  let soDongCanhBao = 0;
 
   for (const r of results) {
     byKetLuan.set(r.ketLuan, (byKetLuan.get(r.ketLuan) || 0) + 1);
 
-    const isCanhBao = r.ketLuan !== KET_LUAN.KHONG_LIEN_QUAN_DANH_MUC;
-    if (isCanhBao) soDongCanhBao += 1;
-    const tien = isCanhBao ? Number(r.errorRow?.deNghi) || 0 : 0;
+    const tien = getSavedAmountOfResult(r);
 
     const khoaKey = r.errorRow?.maKhoa || '(không rõ)';
     const khoa = byKhoa.get(khoaKey) || { count: 0, tongTienCanhBao: 0 };
@@ -260,8 +287,9 @@ async function getSummary(batchId) {
 
   return {
     batchId,
-    tongSoDong: results.length,
-    soDongCanhBao,
+    tongSoDong: analysisSummary.totalRows,
+    soDongCanhBao: analysisSummary.warningRows,
+    tongTienTietKiem: analysisSummary.savedAmount,
     theoKetLuan: [...byKetLuan.entries()].map(([ketLuan, count]) => ({ ketLuan, count })),
     theoKhoa: [...byKhoa.entries()]
       .map(([maKhoa, v]) => ({ maKhoa, count: v.count, tongTienCanhBao: v.tongTienCanhBao }))

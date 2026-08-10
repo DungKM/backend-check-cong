@@ -3,6 +3,7 @@ const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
 
 const { verifyJwt } = require('./middleware/auth');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
@@ -22,6 +23,10 @@ function createApp() {
   app.use(helmet());
   app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
   app.use(express.json());
+  // Chặn NoSQL operator injection (ví dụ body {"batchId": {"$ne": null}} khiến Mongo
+  // hiểu batchId là toán tử truy vấn thay vì giá trị) — lọc bỏ key bắt đầu bằng "$"
+  // hoặc chứa "." trong req.body/req.query/req.params trước khi vào bất kỳ route nào.
+  app.use(mongoSanitize());
 
   app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

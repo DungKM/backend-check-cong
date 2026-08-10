@@ -68,6 +68,7 @@ async function ingestClaimXml({ batchId, userId, files }) {
   batch.claimFileNames = fileNames;
   batch.claimFiles = claimFiles;
   batch.rowCounts.claimRows = allRows.length;
+  batch.analysisSummary = { totalRows: 0, warningRows: 0, savedAmount: 0 };
   batch.status = 'uploaded';
   await batch.save();
 

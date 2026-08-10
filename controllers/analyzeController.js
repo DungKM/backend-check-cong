@@ -4,7 +4,7 @@ const exportService = require('../services/exportService');
 
 const runAnalyze = asyncHandler(async (req, res) => {
   const { batchId } = req.body;
-  if (!batchId) {
+  if (!batchId || typeof batchId !== 'string') {
     return res.status(400).json({ message: 'Thiếu batchId' });
   }
   const result = await reconciliationService.runAnalysis(batchId);
