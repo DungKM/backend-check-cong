@@ -1,5 +1,5 @@
 const { classifyChiPhi } = require('./classifyChiPhi');
-const { findValidCatalogRow, narrowDrugCandidates } = require('./matchCatalogRow');
+const { findValidCatalogRow, narrowDrugCandidates, narrowServiceCandidates } = require('./matchCatalogRow');
 const { compareDrugFields, compareServiceFields, compareVatTuFields } = require('./compareFields');
 const { classifyRejectReason } = require('./classifyRejectReason');
 const { checkBacSi } = require('./checkBacSi');
@@ -18,6 +18,12 @@ function pickCandidateSetForRow(errorRow, catalogIndex) {
     errorRow
   );
 
+  const serviceCandidatesRaw = catalogIndex.serviceByCode.get(errorRow.maChiPhi) || [];
+  const { candidates: serviceCandidates, ghiChu: serviceGhiChu } = narrowServiceCandidates(
+    serviceCandidatesRaw,
+    errorRow
+  );
+
   const byLoai = {
     [LOAI_CHI_PHI.THUOC]: {
       candidates: drugCandidates,
@@ -25,9 +31,9 @@ function pickCandidateSetForRow(errorRow, catalogIndex) {
       ghiChu: drugGhiChu,
     },
     [LOAI_CHI_PHI.DICH_VU]: {
-      candidates: catalogIndex.serviceByCode.get(errorRow.maChiPhi) || [],
+      candidates: serviceCandidates,
       compareFn: compareServiceFields,
-      ghiChu: [],
+      ghiChu: serviceGhiChu,
     },
     [LOAI_CHI_PHI.VAT_TU]: {
       candidates: (catalogIndex.vatTuByCode || new Map()).get(errorRow.maChiPhi) || [],

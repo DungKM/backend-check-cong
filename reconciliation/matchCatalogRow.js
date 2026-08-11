@@ -67,6 +67,29 @@ function narrowDrugCandidates(candidates, errorRow) {
 }
 
 /**
+ * Cùng 1 mã DVKT có thể có nhiều dòng danh mục khác nhau về TÊN (VD "...[số hóa 1
+ * phim] [không in phim]" vs "...[số hóa 1 phim]" vs không dấu/viết tắt khác) ở cùng
+ * một giai đoạn hiệu lực — vì giờ các dòng khác tên không còn bị coi là trùng và ghi
+ * đè lên nhau (xem CATALOG_CONFIG.service). Lọc theo mã + ngày hiệu lực
+ * (findValidCatalogRow) không phân biệt được các dòng này, nên có thể chọn nhầm dòng
+ * và báo sai tên giả dù hồ sơ khai đúng tên của MỘT dòng khác cùng mã.
+ *
+ * Thu hẹp candidates về đúng tên trên hồ sơ trước, nếu tìm được ít nhất 1 dòng khớp
+ * (không khớp thì giữ nguyên toàn bộ — để bước so sánh sau vẫn báo lệch tên như cũ,
+ * đúng thực tế: hồ sơ dùng tên không có trong danh mục cùng mã).
+ */
+function narrowServiceCandidates(candidates, errorRow) {
+  const ghiChu = [];
+  const tenStep = narrowByField(candidates, errorRow.tenChiPhi, (row) => row.tenDvktPheDuyet, 'Tên dịch vụ');
+  if (tenStep.narrowed) {
+    ghiChu.push(
+      `Mã DVKT có ${candidates.length} dòng khác tên trong danh mục, đã chọn đúng dòng theo tên trên hồ sơ`
+    );
+  }
+  return { candidates: tenStep.candidates, ghiChu };
+}
+
+/**
  * Given all catalog rows sharing a code (not yet filtered by date) and the
  * error row's "Ngày y lệnh", picks the catalog row whose validity window
  * [tuNgay, denNgay] (denNgay null = open-ended/still valid) contains that date.
@@ -95,4 +118,4 @@ function findValidCatalogRow(candidates, ngayYLenh) {
   return { row: sorted[0], ambiguous: true, matchedCount: validRows.length };
 }
 
-module.exports = { findValidCatalogRow, narrowDrugCandidates };
+module.exports = { findValidCatalogRow, narrowDrugCandidates, narrowServiceCandidates };
