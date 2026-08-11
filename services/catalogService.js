@@ -311,7 +311,11 @@ async function runImportJob(catalogImport, config, buffer) {
             }));
       const result = await config.model.bulkWrite(operations);
       rowsInserted += (result.upsertedCount || 0) + (result.insertedCount || 0);
-      rowsUpdated += result.modifiedCount || 0;
+      // matchedCount, không phải modifiedCount: một dòng trùng y hệt bản ghi đã có (kể cả
+      // vừa được thêm bởi dòng khác trong cùng file) khớp filter nhưng không đổi nội dung
+      // gì (kể cả updatedAt, nếu cùng mili-giây) — MongoDB báo modifiedCount 0, khiến dòng
+      // đó "biến mất" khỏi tổng thêm mới + cập nhật dù đã được xử lý đúng.
+      rowsUpdated += result.matchedCount || 0;
 
       catalogImport.rowsInserted = rowsInserted;
       catalogImport.rowsUpdated = rowsUpdated;
