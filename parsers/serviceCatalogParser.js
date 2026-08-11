@@ -64,17 +64,9 @@ async function parseServiceCatalogWorkbook(buffer) {
     rows.push({
       maTuongDuong,
       tenDvktPheDuyet,
-      tenDvktGia: colMap.tenDvktGia ? cellString(row.getCell(colMap.tenDvktGia)) : '',
-      phanLoaiPTTT: colMap.phanLoaiPTTT ? cellString(row.getCell(colMap.phanLoaiPTTT)) : '',
       donGia: colMap.donGia ? cellNumber(row.getCell(colMap.donGia)) : null,
-      ghiChu: colMap.ghiChu ? cellString(row.getCell(colMap.ghiChu)) : '',
-      quyetDinh: colMap.quyetDinh ? cellString(row.getCell(colMap.quyetDinh)) : '',
       tuNgay,
       denNgay: colMap.denNgay ? excelValueToDate(cellValue(row.getCell(colMap.denNgay))) : null,
-      maCSKCB: colMap.maCSKCB ? cellString(row.getCell(colMap.maCSKCB)) : '',
-      cskcbCgkt: colMap.cskcbCgkt ? cellString(row.getCell(colMap.cskcbCgkt)) : '',
-      cskcbCls: colMap.cskcbCls ? cellString(row.getCell(colMap.cskcbCls)) : '',
-      maBanGhiNguon: colMap.maBanGhiNguon ? cellString(row.getCell(colMap.maBanGhiNguon)) : '',
     });
   }
 

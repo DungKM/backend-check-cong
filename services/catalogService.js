@@ -76,37 +76,22 @@ const CATALOG_CONFIG = {
     model: ServiceCatalogMaster,
     parse: parseServiceCatalogWorkbook,
     // Chỉ coi 2 dòng là trùng (update tại chỗ) khi TẤT CẢ các trường đều khớp — cùng mã
-    // tương đương + từ ngày nhưng khác tên/đơn giá/CSKCB vẫn là bản ghi khác, phải thêm
-    // mới thay vì ghi đè (xem lý do tương tự ở CATALOG_CONFIG.serviceGroup).
+    // tương đương + từ ngày nhưng khác tên/đơn giá vẫn là bản ghi khác, phải thêm mới
+    // thay vì ghi đè (xem lý do tương tự ở CATALOG_CONFIG.serviceGroup).
     uniqueKey: (row) => ({
       maTuongDuong: row.maTuongDuong,
       tenDvktPheDuyet: row.tenDvktPheDuyet,
-      tenDvktGia: row.tenDvktGia,
-      phanLoaiPTTT: row.phanLoaiPTTT,
       donGia: row.donGia,
-      ghiChu: row.ghiChu,
-      quyetDinh: row.quyetDinh,
       tuNgay: row.tuNgay,
       denNgay: row.denNgay,
-      maCSKCB: row.maCSKCB,
-      cskcbCgkt: row.cskcbCgkt,
-      cskcbCls: row.cskcbCls,
     }),
     searchFields: ['maTuongDuong', 'tenDvktPheDuyet'],
     fields: [
       { key: 'maTuongDuong', header: 'MA_TUONG_DUONG', type: 'string', required: true, example: 'S001' },
       { key: 'tenDvktPheDuyet', header: 'TEN_DVKT_PHEDUYET', type: 'string', required: true, example: 'Khám nội khoa' },
-      { key: 'tenDvktGia', header: 'TEN_DVKT_GIA', type: 'string', example: 'Khám nội khoa' },
-      { key: 'phanLoaiPTTT', header: 'PHAN_LOAI_PTTT', type: 'string', example: '' },
       { key: 'donGia', header: 'DON_GIA', type: 'number', example: 50000 },
-      { key: 'ghiChu', header: 'GHICHU', type: 'string', example: '' },
-      { key: 'quyetDinh', header: 'QUYET_DINH', type: 'string', example: '20241106_3328/QĐ-BYT' },
       { key: 'tuNgay', header: 'TUNGAY', type: 'date', required: true, example: '2024-01-01' },
       { key: 'denNgay', header: 'DENNGAY', type: 'date', example: '2024-12-31' },
-      { key: 'maCSKCB', header: 'MA_CSKCB', type: 'string', example: 'CSKCB01' },
-      { key: 'cskcbCgkt', header: 'CSKCB_CGKT', type: 'string', example: '' },
-      { key: 'cskcbCls', header: 'CSKCB_CLS', type: 'string', example: '' },
-      { key: 'maBanGhiNguon', header: 'ID', type: 'string', example: '96720621' },
     ],
   },
   errorCode: {
