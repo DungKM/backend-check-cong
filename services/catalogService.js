@@ -140,7 +140,22 @@ const CATALOG_CONFIG = {
   serviceGroup: {
     model: ServiceGroupCatalog,
     parse: parseServiceGroupCatalogWorkbook,
-    uniqueKey: (row) => ({ ma: row.ma }),
+    // Không dùng riêng `ma` làm khoá trùng — file nguồn (danh mục dịch vụ kỹ thuật) có
+    // nhiều dòng chia sẻ cùng MA nhưng khác GIA/LOAIPTTT/GHICHU (các biến thể phân loại/
+    // giá hợp lệ); upsert theo mỗi `ma` từng làm dòng sau âm thầm ghi đè GIA của dòng
+    // trước. Chỉ coi 2 dòng là trùng (update tại chỗ) khi TẤT CẢ các trường đều khớp;
+    // khác bất kỳ trường nào thì được thêm thành bản ghi mới.
+    uniqueKey: (row) => ({
+      ma: row.ma,
+      ten: row.ten,
+      loaiPTTT: row.loaiPTTT,
+      maGia: row.maGia,
+      tenGia: row.tenGia,
+      gia: row.gia,
+      giaSau: row.giaSau,
+      ghiChu: row.ghiChu,
+      maNhom: row.maNhom,
+    }),
     searchFields: ['ma', 'ten', 'maGia'],
     fields: [
       { key: 'ma', header: 'MA', type: 'string', required: true, example: '10.0811.0559_GT' },

@@ -15,6 +15,8 @@ const serviceGroupCatalogSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-serviceGroupCatalogSchema.index({ ma: 1 }, { unique: true });
+// Không unique: file nguồn có nhiều dòng chia sẻ cùng MA nhưng khác GIA/LOAIPTTT/GHICHU
+// (biến thể phân loại/giá hợp lệ) — xem catalogService.js CATALOG_CONFIG.serviceGroup.
+serviceGroupCatalogSchema.index({ ma: 1 });
 
 module.exports = mongoose.model('ServiceGroupCatalog', serviceGroupCatalogSchema);
