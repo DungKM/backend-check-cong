@@ -58,10 +58,17 @@ const DRUG_CATALOG_ALIASES = {
 const SERVICE_CATALOG_ALIASES = {
   maTuongDuong: ['ma_tuong_duong', 'ma tuong duong'],
   tenDvktPheDuyet: ['ten_dvkt_pheduyet', 'ten dvkt pheduyet', 'ten dvkt phe duyet'],
+  tenDvktGia: ['ten_dvkt_gia', 'ten dvkt gia'],
+  phanLoaiPTTT: ['phan_loai_pttt', 'phan loai pttt'],
   donGia: ['don_gia', 'don gia'],
+  ghiChu: ['ghi_chu', 'ghichu', 'ghi chu'],
+  quyetDinh: ['quyet_dinh', 'quyet dinh'],
   tuNgay: ['tungay', 'tu ngay'],
   denNgay: ['denngay', 'den ngay'],
   maCSKCB: ['ma_cskcb', 'ma cskcb'],
+  cskcbCgkt: ['cskcb_cgkt', 'cskcb cgkt'],
+  cskcbCls: ['cskcb_cls', 'cskcb cls'],
+  maBanGhiNguon: ['id'],
 };
 
 const DOCTOR_CATALOG_ALIASES = {
