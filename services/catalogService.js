@@ -75,7 +75,17 @@ const CATALOG_CONFIG = {
   service: {
     model: ServiceCatalogMaster,
     parse: parseServiceCatalogWorkbook,
-    uniqueKey: (row) => ({ maTuongDuong: row.maTuongDuong, tuNgay: row.tuNgay }),
+    // Chỉ coi 2 dòng là trùng (update tại chỗ) khi TẤT CẢ các trường đều khớp — cùng mã
+    // tương đương + từ ngày nhưng khác tên/đơn giá/CSKCB vẫn là bản ghi khác, phải thêm
+    // mới thay vì ghi đè (xem lý do tương tự ở CATALOG_CONFIG.serviceGroup).
+    uniqueKey: (row) => ({
+      maTuongDuong: row.maTuongDuong,
+      tenDvktPheDuyet: row.tenDvktPheDuyet,
+      donGia: row.donGia,
+      tuNgay: row.tuNgay,
+      denNgay: row.denNgay,
+      maCSKCB: row.maCSKCB,
+    }),
     searchFields: ['maTuongDuong', 'tenDvktPheDuyet'],
     fields: [
       { key: 'maTuongDuong', header: 'MA_TUONG_DUONG', type: 'string', required: true, example: 'S001' },

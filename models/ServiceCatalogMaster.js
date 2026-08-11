@@ -12,7 +12,9 @@ const serviceCatalogMasterSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-serviceCatalogMasterSchema.index({ maTuongDuong: 1, tuNgay: 1 }, { unique: true });
+// Không unique: cùng mã tương đương + từ ngày nhưng khác tên/đơn giá/CSKCB là bản ghi
+// hợp lệ khác nhau — xem catalogService.js CATALOG_CONFIG.service.
+serviceCatalogMasterSchema.index({ maTuongDuong: 1, tuNgay: 1 });
 serviceCatalogMasterSchema.index({ maTuongDuong: 1, tuNgay: 1, denNgay: 1 });
 
 module.exports = mongoose.model('ServiceCatalogMaster', serviceCatalogMasterSchema);
