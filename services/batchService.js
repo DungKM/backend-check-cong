@@ -18,8 +18,13 @@ async function getClaimFiles(batchId) {
   if (!batch) return null;
   const claimFiles = batch.claimFiles || [];
 
+  // hoTen KHÔNG có trong claimFiles (Mongo, PII) — chỉ đọc tạm từ claimMemoryStore (RAM),
+  // nên chỉ hiện được trong CÙNG session vừa tải lên; mất khi server restart hoặc batch
+  // bị đẩy khỏi RAM (xem claimMemoryStore.setClaimFileHoTen).
+  const withHoTen = (f) => ({ ...f, hoTen: claimMemoryStore.getClaimFileHoTen(batchId, f.fileName) });
+
   if (batch.status !== 'analyzed' || claimFiles.length === 0) {
-    return claimFiles.map((f) => ({ ...f, tongCanhBao: 0, mucCao: 0 }));
+    return claimFiles.map((f) => ({ ...withHoTen(f), tongCanhBao: 0, mucCao: 0 }));
   }
 
   const byFileName = new Map();
@@ -33,7 +38,7 @@ async function getClaimFiles(batchId) {
   }
 
   return claimFiles.map((f) => ({
-    ...f,
+    ...withHoTen(f),
     tongCanhBao: byFileName.get(f.fileName)?.tongCanhBao || 0,
     mucCao: byFileName.get(f.fileName)?.mucCao || 0,
   }));

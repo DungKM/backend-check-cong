@@ -12,11 +12,11 @@ const crypto = require('crypto');
 // ngưỡng (đủ dùng cho luồng "upload rồi xem kết quả ngay", không phải kho lưu trữ).
 const MAX_BATCHES_IN_MEMORY = 30;
 
-const store = new Map(); // batchId -> { claimItems, claimXmlDetails, analysisResults }
+const store = new Map(); // batchId -> { claimItems, claimXmlDetails, analysisResults, claimFileHoTen }
 
 function getOrInit(batchId) {
   if (!store.has(batchId)) {
-    store.set(batchId, { claimItems: [], claimXmlDetails: [], analysisResults: [] });
+    store.set(batchId, { claimItems: [], claimXmlDetails: [], analysisResults: [], claimFileHoTen: {} });
   }
   return store.get(batchId);
 }
@@ -68,6 +68,18 @@ function getAnalysisResults(batchId) {
   return store.get(batchId)?.analysisResults || [];
 }
 
+// Tên bệnh nhân theo fileName — chỉ để hiện tạm ở bảng tổng hợp file trong CÙNG session
+// (RAM), không bao giờ ghi xuống Mongo (xem uploadService.ingestClaimXml/Batch.claimFiles).
+// Mất khi server restart hoặc batch bị đẩy khỏi RAM (touchAndEvict) — đúng ý định PII.
+function setClaimFileHoTen(batchId, hoTenByFileName) {
+  const entry = getOrInit(batchId);
+  entry.claimFileHoTen = hoTenByFileName || {};
+}
+
+function getClaimFileHoTen(batchId, fileName) {
+  return store.get(batchId)?.claimFileHoTen?.[fileName] || '';
+}
+
 function deleteBatch(batchId) {
   store.delete(batchId);
 }
@@ -83,6 +95,8 @@ module.exports = {
   getClaimXmlDetails,
   setAnalysisResults,
   getAnalysisResults,
+  setClaimFileHoTen,
+  getClaimFileHoTen,
   deleteBatch,
   getAllBatchIds,
 };

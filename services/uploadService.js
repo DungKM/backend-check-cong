@@ -22,6 +22,7 @@ async function ingestClaimXml({ batchId, userId, files }) {
   const allWarnings = [];
   const fileNames = [];
   const claimFiles = [];
+  const hoTenByFileName = {};
 
   for (const file of files) {
     fileNames.push(file.originalname);
@@ -48,7 +49,9 @@ async function ingestClaimXml({ batchId, userId, files }) {
 
     // A file normally wraps one hồ sơ (one MA_LK) — take the first successfully parsed
     // one to represent the file in the per-file summary table.
-    // KHÔNG lưu hoTen ở đây nữa (PII) — Batch chỉ giữ số liệu tổng hợp không định danh.
+    // KHÔNG lưu hoTen vào claimFiles (PII) — Batch (Mongo) chỉ giữ số liệu tổng hợp
+    // không định danh. hoTen chỉ lưu riêng ở claimMemoryStore (RAM) để bảng tổng hợp
+    // hiện tạm được trong CÙNG session vừa tải lên — xem claimMemoryStore.setClaimFileHoTen.
     const representativeHoso = hosoSummaries.find((h) => h.ok);
     claimFiles.push({
       fileName: file.originalname,
@@ -58,12 +61,16 @@ async function ingestClaimXml({ batchId, userId, files }) {
       parseWarningCount: warnings.length,
       errorMessage: representativeHoso ? undefined : 'Không đọc được thông tin hồ sơ (thiếu MA_LK ở XML1)',
     });
+    if (representativeHoso?.hoTen) {
+      hoTenByFileName[file.originalname] = representativeHoso.hoTen;
+    }
   }
 
   // Nội dung hồ sơ (tên/ngày sinh/mã thẻ/chi phí...) chỉ giữ trong bộ nhớ tiến trình,
   // KHÔNG ghi MongoDB — xem claimMemoryStore.js.
   claimMemoryStore.setClaimItems(batch.batchId, allRows.map((row) => ({ ...row, batchId: batch.batchId })));
   claimMemoryStore.setClaimXmlDetails(batch.batchId, allXmlDetails.map((d) => ({ ...d, batchId: batch.batchId })));
+  claimMemoryStore.setClaimFileHoTen(batch.batchId, hoTenByFileName);
 
   batch.claimFileNames = fileNames;
   batch.claimFiles = claimFiles;
