@@ -87,7 +87,14 @@ describe('compareVatTuFields', () => {
     const errorRow = { tenChiPhi: 'Băng gạc', donGia: 6000 };
     const catalogRow = { tenVatTu: 'Băng gạc', donGiaBH: 5000 };
     const diff = compareVatTuFields(errorRow, catalogRow);
-    expect(diff).toEqual([{ truong: 'Đơn giá', giaTriXML: '6000', giaTriDanhMuc: '5000' }]);
+    expect(diff).toEqual([
+      {
+        truong: 'Đơn giá',
+        giaTriXML: '6000',
+        giaTriDanhMuc: '5000',
+        apDungTruongTag: 'DON_GIA_VAT_TU_CAO_HON',
+      },
+    ]);
   });
 
   test('donGia null/undefined (not on the claim line) -> đơn giá not compared', () => {

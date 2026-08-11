@@ -54,6 +54,11 @@ const MA_LOI_AP_DUNG_TRUONG = {
   // row predicts only the VTYT-specific mã lỗi, not every KHONG_TIM_THAY-tagged
   // code regardless of loại chi phí. See predictErrorCode.js.
   KHONG_TIM_THAY_VAT_TU: 'KHONG_TIM_THAY_VAT_TU',
+  // Cùng lý do với KHONG_TIM_THAY_VAT_TU ở trên — tách riêng thuốc/DVKT để mã lỗi
+  // "thuốc ngoài danh mục" (ML012) không bị gắn cho dòng DVKT không tìm thấy, và
+  // ngược lại "DVKT không nằm trong danh mục" (ML003) không bị gắn cho dòng thuốc.
+  KHONG_TIM_THAY_THUOC: 'KHONG_TIM_THAY_THUOC',
+  KHONG_TIM_THAY_DVKT: 'KHONG_TIM_THAY_DVKT',
   MA_BAC_SI: 'MA_BAC_SI',
   // Thẻ sai ngày sinh/họ tên so với CSDL thẻ BHYT thật của BHXH (ML011/ML019) — đối
   // chiếu qua API cổng BHXH (services/bhxhEgwService.js), không còn suy đoán qua CCCD
@@ -72,6 +77,17 @@ const MA_LOI_AP_DUNG_TRUONG = {
   // Riêng cho ML018 (đúng tuyến, chi phí >=15% LCS) — tách khỏi MUC_HUONG (ML015,
   // trái tuyến) vì hai mã lỗi mô tả điều kiện tuyến ngược nhau.
   MUC_HUONG_DUNG_TUYEN: 'MUC_HUONG_DUNG_TUYEN',
+  // Lệch đơn giá, tách theo loại chi phí + chiều lệch (cao hơn/thấp hơn danh mục) —
+  // các mã lỗi chuẩn BHYT phân biệt rõ 2 điều này (VD ML006 "giá THUỐC" chỉ áp dụng
+  // khi CAO HƠN giá phê duyệt, không áp dụng cho DVKT/vật tư hay khi giá thấp hơn).
+  // compareFields.js gắn đúng 1 trong 6 tag này cho mỗi lệch đơn giá — không còn rơi
+  // về tag "Đơn giá" chung (generic DON_GIA ở trên) nữa, xem predictErrorCode.js.
+  DON_GIA_THUOC_CAO_HON: 'DON_GIA_THUOC_CAO_HON',
+  DON_GIA_THUOC_THAP_HON: 'DON_GIA_THUOC_THAP_HON',
+  DON_GIA_DVKT_CAO_HON: 'DON_GIA_DVKT_CAO_HON',
+  DON_GIA_DVKT_THAP_HON: 'DON_GIA_DVKT_THAP_HON',
+  DON_GIA_VAT_TU_CAO_HON: 'DON_GIA_VAT_TU_CAO_HON',
+  DON_GIA_VAT_TU_THAP_HON: 'DON_GIA_VAT_TU_THAP_HON',
 };
 
 // Mã mức hưởng ghi trên thẻ BHYT (ký tự thứ 3 của số thẻ, VD "TC3363621769845"

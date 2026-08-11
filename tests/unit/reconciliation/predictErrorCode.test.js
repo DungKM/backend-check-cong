@@ -55,18 +55,22 @@ describe('predictErrorCode', () => {
     expect(result.map((w) => w.maLoi)).toEqual(['L003']);
   });
 
-  test('KHONG_TIM_THAY for loai VAT_TU only matches KHONG_TIM_THAY_VAT_TU, not the generic KHONG_TIM_THAY tag meant for thuốc/DVKT', () => {
+  test('KHONG_TIM_THAY is scoped per loại (thuốc/DVKT/vật tư) and never cross-matches another loại', () => {
     const rows = [
-      errorCodeRow({ maLoi: 'ML003', tenLoi: 'DVKT không nằm trong danh mục', apDungTruong: 'KHONG_TIM_THAY' }),
+      errorCodeRow({ maLoi: 'ML003', tenLoi: 'DVKT không nằm trong danh mục', apDungTruong: 'KHONG_TIM_THAY_DVKT' }),
+      errorCodeRow({ maLoi: 'ML012', tenLoi: 'Thuốc ngoài danh mục', apDungTruong: 'KHONG_TIM_THAY_THUOC' }),
       errorCodeRow({ maLoi: 'ML016', tenLoi: 'VTYT ngoài danh mục', apDungTruong: 'KHONG_TIM_THAY_VAT_TU' }),
     ];
     const index = buildErrorCodeIndex(rows);
 
-    const vatTuResult = predictErrorCode({ ketLuan: KET_LUAN.KHONG_TIM_THAY, chiTietLech: [], loai: 'VAT_TU' }, index);
-    expect(vatTuResult.map((w) => w.maLoi)).toEqual(['ML016']);
-
     const dvktResult = predictErrorCode({ ketLuan: KET_LUAN.KHONG_TIM_THAY, chiTietLech: [], loai: 'DICH_VU' }, index);
     expect(dvktResult.map((w) => w.maLoi)).toEqual(['ML003']);
+
+    const thuocResult = predictErrorCode({ ketLuan: KET_LUAN.KHONG_TIM_THAY, chiTietLech: [], loai: 'THUOC' }, index);
+    expect(thuocResult.map((w) => w.maLoi)).toEqual(['ML012']);
+
+    const vatTuResult = predictErrorCode({ ketLuan: KET_LUAN.KHONG_TIM_THAY, chiTietLech: [], loai: 'VAT_TU' }, index);
+    expect(vatTuResult.map((w) => w.maLoi)).toEqual(['ML016']);
   });
 
   test('untagged mã lỗi only apply as a fallback when nothing specific matched', () => {

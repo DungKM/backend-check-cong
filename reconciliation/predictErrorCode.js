@@ -60,15 +60,17 @@ function activeOn(rows, ngayYLenh) {
 
 /**
  * result: { ketLuan, chiTietLech, loai } from reconcileRow. For LECH_DU_LIEU, each
- * chiTietLech entry's `truong` (e.g. "Đơn giá", "Hàm lượng") is matched against
- * mã lỗi tagged with that exact apDungTruong, so a price mismatch and a hàm lượng
- * mismatch surface distinct codes instead of one blanket "sai danh mục" warning.
- * KHONG_TIM_THAY is matched against mã lỗi tagged KHONG_TIM_THAY — except for
- * `loai === VAT_TU`, which uses the scoped KHONG_TIM_THAY_VAT_TU tag instead (and
- * does NOT fall back to the generic KHONG_TIM_THAY tag), so a VTYT-not-found row
- * predicts only VTYT-specific mã lỗi (ML016/ML017) rather than every
- * KHONG_TIM_THAY-tagged code meant for thuốc/DVKT (ML003/ML012) too. Untagged mã
- * lỗi in the row's nhómLỗi are only used when nothing more specific matched.
+ * chiTietLech entry is matched against mã lỗi tagged with its `apDungTruongTag` when
+ * present (donGia diffs — see priceDiffTag in compareFields.js, scoped to loại chi
+ * phí + chiều lệch), else its plain `truong` label (e.g. "Hàm lượng"), so a price
+ * mismatch and a hàm lượng mismatch surface distinct codes instead of one blanket
+ * "sai danh mục" warning.
+ * KHONG_TIM_THAY is matched against a tag scoped to `loai` — KHONG_TIM_THAY_VAT_TU,
+ * KHONG_TIM_THAY_THUOC, or KHONG_TIM_THAY_DVKT — instead of the generic
+ * KHONG_TIM_THAY tag, and does NOT fall back to it, so e.g. a thuốc-not-found row
+ * predicts only thuốc-specific mã lỗi (ML012) rather than every KHONG_TIM_THAY-tagged
+ * code regardless of loại chi phí (which used to also pull in ML003, DVKT's code).
+ * Untagged mã lỗi in the row's nhómLỗi are only used when nothing more specific matched.
  */
 function predictErrorCode({ ketLuan, chiTietLech, loai }, errorCodeIndex, ngayYLenh) {
   const nhomLoi = ketLuanToNhomLoi(ketLuan);
@@ -82,20 +84,27 @@ function predictErrorCode({ ketLuan, chiTietLech, loai }, errorCodeIndex, ngayYL
     }
   }
 
+  const KHONG_TIM_THAY_TAG_BY_LOAI = {
+    [LOAI_CHI_PHI.VAT_TU]: MA_LOI_AP_DUNG_TRUONG.KHONG_TIM_THAY_VAT_TU,
+    [LOAI_CHI_PHI.THUOC]: MA_LOI_AP_DUNG_TRUONG.KHONG_TIM_THAY_THUOC,
+    [LOAI_CHI_PHI.DICH_VU]: MA_LOI_AP_DUNG_TRUONG.KHONG_TIM_THAY_DVKT,
+  };
+
   if (ketLuan === KET_LUAN.KHONG_TIM_THAY) {
-    if (loai === LOAI_CHI_PHI.VAT_TU) {
-      addAll(errorCodeIndex.byField.get(MA_LOI_AP_DUNG_TRUONG.KHONG_TIM_THAY_VAT_TU) || []);
-    } else {
-      addAll(errorCodeIndex.byField.get(MA_LOI_AP_DUNG_TRUONG.KHONG_TIM_THAY) || []);
-    }
+    const tag = KHONG_TIM_THAY_TAG_BY_LOAI[loai] || MA_LOI_AP_DUNG_TRUONG.KHONG_TIM_THAY;
+    addAll(errorCodeIndex.byField.get(tag) || []);
     if (matched.size === 0) addAll(errorCodeIndex.byNhomLoi.get(nhomLoi) || []);
     return [...matched.values()];
   }
 
-  // LECH_DU_LIEU: try to match each distinct mismatched field specifically first.
-  const truongList = [...new Set((chiTietLech || []).map((d) => d.truong))];
-  for (const truong of truongList) {
-    const specific = errorCodeIndex.byField.get(truong) || [];
+  // LECH_DU_LIEU: try to match each mismatched field specifically first. A diff can
+  // carry a more granular apDungTruongTag (e.g. donGia's DON_GIA_THUOC_CAO_HON — see
+  // compareFields.js/priceDiffTag) instead of its plain display `truong` label, so a
+  // mã lỗi scoped to loại chi phí + chiều lệch doesn't get pulled in for every kind of
+  // "Đơn giá" mismatch regardless of loại/chiều.
+  const tagList = [...new Set((chiTietLech || []).map((d) => d.apDungTruongTag || d.truong))];
+  for (const tag of tagList) {
+    const specific = errorCodeIndex.byField.get(tag) || [];
     addAll(specific);
   }
 

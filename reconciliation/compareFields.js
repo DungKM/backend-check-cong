@@ -1,5 +1,5 @@
 const { normalizeText } = require('../utils/normalizeText');
-const { CHI_TIET_LECH_TRUONG } = require('../config/constants');
+const { CHI_TIET_LECH_TRUONG, MA_LOI_AP_DUNG_TRUONG } = require('../config/constants');
 
 function valuesDiffer(a, b) {
   const na = normalizeText(a);
@@ -8,12 +8,20 @@ function valuesDiffer(a, b) {
   return na !== nb;
 }
 
-function diffEntry(truong, giaTriXML, giaTriDanhMuc) {
+function diffEntry(truong, giaTriXML, giaTriDanhMuc, apDungTruongTag) {
   return {
     truong,
     giaTriXML: giaTriXML === null || giaTriXML === undefined ? '' : String(giaTriXML),
     giaTriDanhMuc: giaTriDanhMuc === null || giaTriDanhMuc === undefined ? '' : String(giaTriDanhMuc),
+    ...(apDungTruongTag ? { apDungTruongTag } : {}),
   };
+}
+
+// Tag mã lỗi theo loại chi phí + chiều lệch (cao hơn/thấp hơn danh mục) — xem lý do ở
+// MA_LOI_AP_DUNG_TRUONG.DON_GIA_*_CAO_HON/THAP_HON trong constants.js.
+function priceDiffTag(loaiPrefix, xmlValue, catalogValue) {
+  const huong = Number(xmlValue) > Number(catalogValue) ? 'CAO_HON' : 'THAP_HON';
+  return MA_LOI_AP_DUNG_TRUONG[`DON_GIA_${loaiPrefix}_${huong}`];
 }
 
 const DRUG_FIELD_LABELS = {
@@ -33,7 +41,14 @@ function compareDrugFields(errorRow, catalogRow) {
     }
   }
   if (errorRow.donGia !== null && errorRow.donGia !== undefined && valuesDiffer(errorRow.donGia, catalogRow.donGiaBH)) {
-    diffs.push(diffEntry(CHI_TIET_LECH_TRUONG.DON_GIA, errorRow.donGia, catalogRow.donGiaBH));
+    diffs.push(
+      diffEntry(
+        CHI_TIET_LECH_TRUONG.DON_GIA,
+        errorRow.donGia,
+        catalogRow.donGiaBH,
+        priceDiffTag('THUOC', errorRow.donGia, catalogRow.donGiaBH)
+      )
+    );
   }
   return diffs;
 }
@@ -50,7 +65,14 @@ function compareServiceFields(errorRow, catalogRow) {
   // errorRow.donGia is only populated when the source is a parsed BHYT claim XML
   // (xmlClaimParser); the legacy Excel error-report never carried a per-unit price.
   if (errorRow.donGia !== null && errorRow.donGia !== undefined && valuesDiffer(errorRow.donGia, catalogRow.donGia)) {
-    diffs.push(diffEntry(CHI_TIET_LECH_TRUONG.DON_GIA, errorRow.donGia, catalogRow.donGia));
+    diffs.push(
+      diffEntry(
+        CHI_TIET_LECH_TRUONG.DON_GIA,
+        errorRow.donGia,
+        catalogRow.donGia,
+        priceDiffTag('DVKT', errorRow.donGia, catalogRow.donGia)
+      )
+    );
   }
   return diffs;
 }
@@ -65,7 +87,14 @@ function compareVatTuFields(errorRow, catalogRow) {
     diffs.push(diffEntry(VAT_TU_FIELD_LABELS.tenChiPhi, errorRow.tenChiPhi, catalogRow.tenVatTu));
   }
   if (errorRow.donGia !== null && errorRow.donGia !== undefined && valuesDiffer(errorRow.donGia, catalogRow.donGiaBH)) {
-    diffs.push(diffEntry(CHI_TIET_LECH_TRUONG.DON_GIA, errorRow.donGia, catalogRow.donGiaBH));
+    diffs.push(
+      diffEntry(
+        CHI_TIET_LECH_TRUONG.DON_GIA,
+        errorRow.donGia,
+        catalogRow.donGiaBH,
+        priceDiffTag('VAT_TU', errorRow.donGia, catalogRow.donGiaBH)
+      )
+    );
   }
   return diffs;
 }
